@@ -1,0 +1,21 @@
+{
+  "name": "8MP System",
+  "short_name": "V 1.0 PRO",
+  "start_url": "index.php",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#4f46e5",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "assets/img/logo_1769284290.PNG",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "assets/img/logo_1769284290.PNG",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

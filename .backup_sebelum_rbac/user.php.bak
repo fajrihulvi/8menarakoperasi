@@ -1,0 +1,255 @@
+<?php
+// pages/user.php
+if (session_status() == PHP_SESSION_NONE) { session_start(); }
+require_once __DIR__ . '/../layout/tabel_helper.php';
+
+// AUTO FIX DATABASE: Tambah kolom sinkronisasi pelanggan & jenis harga
+$cek_kolom = @mysqli_query($conn, "SHOW COLUMNS FROM users LIKE 'jenis_harga'");
+if($cek_kolom && mysqli_num_rows($cek_kolom) == 0) { @mysqli_query($conn, "ALTER TABLE users ADD jenis_harga VARCHAR(20) DEFAULT 'harga_jual'"); }
+
+$cek_kolom_pel = @mysqli_query($conn, "SHOW COLUMNS FROM users LIKE 'pelanggan_id'");
+if($cek_kolom_pel && mysqli_num_rows($cek_kolom_pel) == 0) { @mysqli_query($conn, "ALTER TABLE users ADD pelanggan_id INT(11) DEFAULT 0"); }
+
+// Cek Akses
+if ($_SESSION['role'] != 'admin') {
+    echo "<div class='bg-red-100 text-red-700 p-4 rounded'><b>Akses Ditolak!</b> Hanya Administrator yang boleh mengakses halaman ini.</div>";
+    exit;
+}
+
+// 1. HANDLE TAMBAH & EDIT USER
+if(isset($_POST['simpan_user'])) {
+    $id_user_edit = $_POST['id_user_edit']; 
+    
+    $nama        = mysqli_real_escape_string($conn, $_POST['nama']);
+    $username    = mysqli_real_escape_string($conn, $_POST['username']);
+    $level       = $_POST['level'];
+    $id_usaha    = $_POST['id_usaha'] ?? $_SESSION['id_usaha']; 
+    $jenis_harga = $_POST['jenis_harga'] ?? 'harga_jual'; 
+    $pelanggan_id = $_POST['pelanggan_id'] ?? 0; // SINKRONISASI PELANGGAN
+    
+    $nopol = ($level == 'driver') ? mysqli_real_escape_string($conn, $_POST['nopol']) : NULL;
+
+    if(!empty($id_user_edit)) {
+        $password_query = "";
+        if(!empty($_POST['password'])) {
+            $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
+            $password_query = ", password='$password'";
+        }
+
+        $cek = mysqli_query($conn, "SELECT id FROM users WHERE username = '$username' AND id != '$id_user_edit'");
+        if(mysqli_num_rows($cek) > 0) {
+            echo "<script>alert('Username sudah digunakan user lain!');</script>";
+        } else {
+            $query = "UPDATE users SET nama='$nama', username='$username', level='$level', role='$level', id_usaha='$id_usaha', nopol='$nopol', jenis_harga='$jenis_harga', pelanggan_id='$pelanggan_id' $password_query WHERE id='$id_user_edit'";
+            if(mysqli_query($conn, $query)) {
+                echo "<script>alert('Data User Berhasil Diupdate!'); window.location='index.php?page=user';</script>";
+            }
+        }
+    } else {
+        if(empty($_POST['password'])) {
+            echo "<script>alert('Password wajib diisi untuk user baru!');</script>";
+        } else {
+            $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
+            $cek = mysqli_query($conn, "SELECT id FROM users WHERE username = '$username'");
+            if(mysqli_num_rows($cek) > 0) {
+                echo "<script>alert('Username sudah digunakan! Ganti yang lain.');</script>";
+            } else {
+                $query = "INSERT INTO users (nama, username, password, level, role, id_usaha, nopol, jenis_harga, pelanggan_id) 
+                          VALUES ('$nama', '$username', '$password', '$level', '$level', '$id_usaha', '$nopol', '$jenis_harga', '$pelanggan_id')";
+                if(mysqli_query($conn, $query)) {
+                    echo "<script>alert('User Berhasil Ditambahkan!'); window.location='index.php?page=user';</script>";
+                }
+            }
+        }
+    }
+}
+
+if(isset($_GET['hapus_user'])) {
+    $id = $_GET['hapus_user'];
+    if($id == $_SESSION['user_id']) { echo "<script>alert('Anda tidak bisa menghapus akun sendiri!'); window.location='index.php?page=user';</script>"; } 
+    else { mysqli_query($conn, "DELETE FROM users WHERE id='$id'"); echo "<script>alert('User Berhasil Dihapus!'); window.location='index.php?page=user';</script>"; }
+}
+
+$edit_data = null;
+if(isset($_GET['edit_user'])) {
+    $id_edit = $_GET['edit_user'];
+    $edit_data = mysqli_fetch_assoc(mysqli_query($conn, "SELECT * FROM users WHERE id='$id_edit'"));
+}
+?>
+
+<div class="mb-6">
+    <h2 class="text-2xl font-bold text-gray-800">Manajemen User & Hak Akses</h2>
+    <p class="text-sm text-gray-500">Kelola pengguna aplikasi dan batasan akses mereka.</p>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    
+    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200 h-fit">
+        <h3 class="font-bold text-indigo-600 mb-4 border-b pb-2">
+            <?= $edit_data ? "Edit User: " . $edit_data['nama'] : "Tambah User Baru" ?>
+        </h3>
+        
+        <form method="POST" action="index.php?page=user">
+            <input type="hidden" name="id_user_edit" value="<?= $edit_data['id'] ?? '' ?>">
+
+            <div class="mb-4">
+                <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Nama Lengkap</label>
+                <input type="text" name="nama" class="w-full border p-2 rounded focus:outline-indigo-500" required value="<?= $edit_data['nama'] ?? '' ?>">
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Username</label>
+                <input type="text" name="username" class="w-full border p-2 rounded focus:outline-indigo-500" required value="<?= $edit_data['username'] ?? '' ?>">
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Password</label>
+                <input type="password" name="password" class="w-full border p-2 rounded focus:outline-indigo-500" placeholder="<?= $edit_data ? '(Kosongkan jika tidak diganti)' : '********' ?>" <?= $edit_data ? '' : 'required' ?>>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Unit Usaha (Toko)</label>
+                <select name="id_usaha" class="w-full border p-2 rounded focus:outline-indigo-500 bg-blue-50" required>
+                    <?php 
+                    $q_toko = mysqli_query($conn, "SELECT * FROM master_usaha");
+                    while($t = mysqli_fetch_assoc($q_toko)):
+                        $sel = ($edit_data && $edit_data['id_usaha'] == $t['id']) ? 'selected' : '';
+                        echo "<option value='{$t['id']}' $sel>{$t['nama_usaha']}</option>";
+                    endwhile; 
+                    ?>
+                </select>
+            </div>
+
+            <div class="mb-4 p-3 border border-yellow-300 bg-yellow-50 rounded-lg">
+                <label class="block text-xs font-bold text-gray-800 uppercase mb-1"><i class="fa-solid fa-link text-yellow-600"></i> Hubungkan ke Profil Dapur/Pelanggan</label>
+                <select name="pelanggan_id" class="w-full border p-2 rounded focus:outline-indigo-500 bg-white">
+                    <option value="0">-- Bukan Pelanggan (Kosongkan) --</option>
+                    <?php 
+                    $q_pel = mysqli_query($conn, "SELECT id, nama_pelanggan FROM pelanggan ORDER BY nama_pelanggan ASC");
+                    while($p = mysqli_fetch_assoc($q_pel)):
+                        $sel = ($edit_data && ($edit_data['pelanggan_id'] ?? 0) == $p['id']) ? 'selected' : '';
+                        echo "<option value='{$p['id']}' $sel>{$p['nama_pelanggan']}</option>";
+                    endwhile; 
+                    ?>
+                </select>
+                <p class="text-[10px] text-gray-500 mt-1 leading-tight">Jika ini akun dapur/pelanggan, wajib diisi agar Order & Surat Jalan otomatis tersinkron.</p>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Kunci Harga Order</label>
+                <select name="jenis_harga" class="w-full border p-2 rounded focus:outline-indigo-500 bg-green-50" required>
+                    <?php 
+                    $opsi_harga = ['harga_jual' => 'Harga Umum (Default)', 'harga_gabek' => 'Harga Pangkalpinang', 'harga_kereta' => 'Harga Bangka Tengah', 'harga_jebus' => 'Harga Bangka Barat'];
+                    foreach($opsi_harga as $val => $lbl):
+                        $sel = ($edit_data && ($edit_data['jenis_harga'] ?? 'harga_jual') == $val) ? 'selected' : '';
+                        echo "<option value='$val' $sel>$lbl</option>";
+                    endforeach; 
+                    ?>
+                </select>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Hak Akses (Role)</label>
+                <select name="level" id="roleSelect" class="w-full border p-2 rounded focus:outline-indigo-500 bg-gray-50" required onchange="toggleNopol()">
+                    <option value="">-- Pilih Akses --</option>
+                    <?php 
+                    $roles = ['admin' => 'Administrator', 'po' => 'Admin PO', 'accounting' => 'Accounting', 'invoice' => 'Admin Invoice', 'driver' => 'Driver', 'chef' => 'Chef', 'ahli_gizi' => 'Ahli Gizi', 'pelanggan' => 'Pelanggan (Order)'];
+                    foreach($roles as $key => $label):
+                        $sel = ($edit_data && $edit_data['level'] == $key) ? 'selected' : '';
+                        echo "<option value='$key' $sel>$label</option>";
+                    endforeach; 
+                    ?>
+                </select>
+            </div>
+
+            <div id="nopolField" class="mb-6 <?= ($edit_data && $edit_data['level'] == 'driver') ? '' : 'hidden' ?>">
+                <label class="block text-xs font-bold text-green-600 uppercase mb-1">Nomor Polisi (Nopol)</label>
+                <input type="text" name="nopol" class="w-full border p-2 rounded" value="<?= $edit_data['nopol'] ?? '' ?>">
+            </div>
+
+            <div class="flex gap-2">
+                <?php if($edit_data): ?>
+                    <a href="index.php?page=user" class="w-1/3 bg-gray-500 text-white font-bold py-2 rounded text-center text-sm flex items-center justify-center">Batal</a>
+                <?php endif; ?>
+                <button type="submit" name="simpan_user" class="w-full bg-indigo-600 text-white font-bold py-2 rounded hover:bg-indigo-700 transition">
+                    <i class="fa-solid <?= $edit_data ? 'fa-save' : 'fa-user-plus' ?> mr-2"></i> 
+                    <?= $edit_data ? 'Update User' : 'Simpan User' ?>
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <div class="lg:col-span-2 bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <div class="p-4 pb-0"><?= render_filter('Cari nama / username / role...') ?></div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm text-left">
+                <thead class="bg-gray-50 text-gray-600 font-bold uppercase text-xs border-b">
+                    <tr>
+                        <th class="p-4">Nama Lengkap</th>
+                        <th class="p-4">Username & Role</th>
+                        <th class="p-4">Sinkron Dapur</th>
+                        <th class="p-4 text-center">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    <?php
+                    // Paginasi & filter sisi server
+                    $u_cari  = ambil_kata_kunci();
+                    $u_hal   = ambil_halaman();
+                    $u_limit = ambil_per_halaman();
+
+                    [$u_where, $u_params, $u_tipe] = bangun_filter(
+                        $u_cari, ['u.nama', 'u.username', 'u.level', 'u.role']
+                    );
+
+                    $u_total  = hitung_total($conn, 'users u', $u_where, $u_params, $u_tipe);
+                    $u_hal    = batasi_halaman($u_hal, $u_total, $u_limit);
+                    $u_offset = ($u_hal - 1) * $u_limit;
+
+                    $u_rows = ambil_data($conn,
+                        'SELECT u.*, p.nama_pelanggan FROM users u LEFT JOIN pelanggan p ON u.pelanggan_id = p.id',
+                        $u_where, $u_params, $u_tipe, 'ORDER BY u.level ASC', $u_limit, $u_offset);
+
+                    if (!$u_rows) { echo render_kosong(4, 'Tidak ada user yang cocok.'); }
+
+                    foreach ($u_rows as $u):
+                        $jh = $u['jenis_harga'] ?? 'harga_jual';
+                        $lbl_harga = ($jh == 'harga_gabek') ? 'Pangkalpinang' : (($jh == 'harga_kereta') ? 'Bangka Tengah' : (($jh == 'harga_jebus') ? 'Bangka Barat' : 'Umum'));
+                    ?>
+                    <tr class="hover:bg-gray-50 <?= ($edit_data && $edit_data['id'] == $u['id']) ? 'bg-indigo-50' : '' ?>">
+                        <td class="p-4 font-bold text-gray-700"><?= $u['nama'] ?></td>
+                        <td class="p-4 text-gray-500">
+                            <?= $u['username'] ?><br>
+                            <span class="text-[10px] bg-gray-200 text-gray-700 px-2 py-0.5 rounded font-bold uppercase"><?= $u['level'] ?></span>
+                        </td>
+                        <td class="p-4">
+                            <?php if(!empty($u['nama_pelanggan'])): ?>
+                                <div class="text-sm font-bold text-indigo-700"><i class="fa-solid fa-link text-xs"></i> <?= $u['nama_pelanggan'] ?></div>
+                            <?php else: ?>
+                                <div class="text-xs text-gray-400 italic">Tidak Terhubung</div>
+                            <?php endif; ?>
+                            <div class="text-[10px] text-green-600 font-bold mt-1">Kunci Harga: <?= $lbl_harga ?></div>
+                        </td>
+                        <td class="p-4 text-center space-x-1">
+                            <a href="index.php?page=user&edit_user=<?= $u['id'] ?>" class="text-blue-500 border border-blue-200 bg-blue-50 px-2 py-1 rounded"><i class="fa-solid fa-pen-to-square"></i></a>
+                            <?php if($u['id'] != $_SESSION['user_id']): ?>
+                                <a href="index.php?page=user&hapus_user=<?= $u['id'] ?>" onclick="return confirm('Hapus?')" class="text-red-500 border border-red-200 bg-red-50 px-2 py-1 rounded"><i class="fa-solid fa-trash"></i></a>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+
+            <?= render_paginasi($u_hal, $u_total, $u_limit) ?>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleNopol() {
+    const role = document.getElementById('roleSelect').value;
+    const divNopol = document.getElementById('nopolField');
+    if (role === 'driver') divNopol.classList.remove('hidden'); else divNopol.classList.add('hidden');
+}
+</script>

@@ -1,0 +1,365 @@
+<?php
+// --- LOGIKA DATA TOKO ---
+$role = $_SESSION['role'] ?? ''; 
+$page = $_GET['page'] ?? 'dashboard'; 
+$id_usaha_aktif = $_SESSION['id_usaha'] ?? 1;
+
+// Ambil Data Toko Aktif
+$q_toko_aktif = mysqli_query($conn, "SELECT * FROM pengaturan WHERE id_usaha = '$id_usaha_aktif'");
+$data_toko    = ($q_toko_aktif) ? mysqli_fetch_assoc($q_toko_aktif) : null;
+$nama_toko_aktif = $data_toko['nama_usaha'] ?? 'Toko Saya';
+$logo_path = "assets/img/" . ($data_toko['logo'] ?? '');
+
+// Hitung Notifikasi Approval (Khusus Admin)
+$cek_app = 0;
+if($role == 'admin') {
+    $q_app = mysqli_query($conn, "SELECT id FROM approval_request WHERE status='pending' AND id_usaha='$id_usaha_aktif'");
+    if($q_app) $cek_app = mysqli_num_rows($q_app);
+}
+
+// ==========================================
+// PENDETEKSI FOLDER AKTIF (AUTO-OPEN)
+// ==========================================
+$menu_dapur     = ['master_konversi', 'panel_chef', 'panel_gizi', 'cek_gizi'];
+$menu_pelanggan = ['order_pelanggan', 'riwayat_pesanan', 'monitoring_armada'];
+$menu_master    = ['barang', 'supplier', 'pelanggan', 'user'];
+$menu_beli      = ['update_stok_mobile', 'approval', 'po', 'barang_masuk', 'rekap_pembelian', 'retur_pembelian'];
+$menu_jual      = ['pos', 'input_surat_jalan', 'riwayat_jual', 'list_surat_jalan', 'tracking_driver', 'pesanan_masuk', 'data_retur'];
+$menu_keuangan  = ['keuangan', 'coa', 'jurnal_umum', 'neraca_saldo', 'laporan_laba_rugi'];
+$menu_driver    = ['driver_panel']; // Input SJ & List SJ driver numpang di menu ini
+?>
+
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="<?= $nama_toko_aktif ?>">
+<link rel="apple-touch-icon" href="<?= $logo_path ?>">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+    /* DESAIN SIDEBAR MODERN & CLEAN */
+    aside { font-family: 'Plus Jakarta Sans', sans-serif; }
+    .sidebar-scroll::-webkit-scrollbar { width: 5px; }
+    .sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
+    .sidebar-scroll::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+    .sidebar-scroll::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }
+    
+    /* Tombol Utama (Folder) */
+    .nav-btn {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 0.75rem 1rem; border-radius: 0.75rem;
+        color: #475569; font-weight: 600; font-size: 0.875rem;
+        transition: all 0.3s ease; width: 100%; cursor: pointer;
+        border: 1px solid transparent;
+    }
+    .nav-btn:hover {
+        background-color: #f8fafc; color: #4f46e5;
+        transform: translateX(3px);
+    }
+    .nav-active {
+        background: linear-gradient(to right, #eef2ff, #f8fafc) !important;
+        color: #4f46e5 !important; border-left: 4px solid #4f46e5 !important;
+        border-radius: 0 0.75rem 0.75rem 0; font-weight: 700;
+    }
+    
+    /* Anak Menu (Sub-link) */
+    .sub-link {
+        display: block; padding: 0.5rem 1rem 0.5rem 2.75rem;
+        color: #64748b; font-size: 0.8125rem; font-weight: 500;
+        border-radius: 0.5rem; transition: all 0.2s; position: relative;
+    }
+    .sub-link::before {
+        content: ''; position: absolute; left: 1.5rem; top: 50%;
+        width: 6px; height: 6px; background-color: #cbd5e1;
+        border-radius: 50%; transform: translateY(-50%); transition: all 0.2s;
+    }
+    .sub-link:hover { color: #4f46e5; background-color: #f1f5f9; transform: translateX(3px); }
+    .sub-link:hover::before { background-color: #4f46e5; box-shadow: 0 0 6px rgba(79,70,229,0.4); }
+    
+    .sub-active { color: #4f46e5; font-weight: 700; background-color: #eef2ff; }
+    .sub-active::before { background-color: #4f46e5; width: 8px; height: 8px; box-shadow: 0 0 6px rgba(79,70,229,0.4); }
+    
+    .arrow-icon { transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+    .submenu-container { overflow: hidden; transition: max-height 0.3s ease-in-out; }
+
+    /* POPUP iOS */
+    #ios-install-prompt {
+        position: fixed; bottom: 0; left: 0; right: 0;
+        background: rgba(255, 255, 255, 0.98); border-top: 1px solid #e2e8f0;
+        padding: 20px; box-shadow: 0 -4px 20px rgba(0,0,0,0.1);
+        z-index: 9999; display: none; text-align: center;
+        border-radius: 20px 20px 0 0;
+    }
+</style>
+
+<!-- Mobile Header -->
+<div class="md:hidden fixed top-0 left-0 w-full bg-white/90 backdrop-blur-md border-b border-slate-200 px-4 py-3 z-40 flex items-center justify-between shadow-sm">
+    <div class="flex items-center">
+        <button onclick="toggleSidebar()" class="p-2 text-slate-600 hover:bg-slate-100 rounded-lg"><i class="fa-solid fa-bars text-xl"></i></button>
+        <span class="ml-3 font-bold text-slate-800 truncate w-40"><?= $nama_toko_aktif ?></span>
+    </div>
+</div>
+
+<!-- Overlay Background -->
+<div id="sidebarOverlay" onclick="toggleSidebar()" class="fixed inset-0 bg-slate-900/50 z-40 hidden transition-opacity md:hidden backdrop-blur-sm"></div>
+
+<!-- MAIN SIDEBAR -->
+<aside id="sidebar" class="flex flex-col w-[260px] h-screen bg-white border-r border-slate-200 shadow-[4px_0_24px_rgba(0,0,0,0.02)] fixed left-0 top-0 z-50 transition-transform duration-300 -translate-x-full md:translate-x-0">
+    
+    <!-- Header Logo -->
+    <div class="h-24 flex flex-col items-center justify-center px-6 border-b border-slate-100 shrink-0 pt-4 pb-2 bg-slate-50/50">
+        <div class="flex items-center justify-center w-full mb-2">
+            <?php if(!empty($data_toko['logo']) && file_exists($logo_path)): ?>
+                <img src="<?= $logo_path ?>" class="h-8 object-contain">
+            <?php else: ?>
+                <div class="h-8 w-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center text-white mr-2 shadow-md"><i class="fa-solid fa-store"></i></div>
+                <span class="font-extrabold text-lg text-slate-800 tracking-tight">8MP System</span>
+            <?php endif; ?>
+        </div>
+        <div class="text-[10px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-3 py-1 rounded-full uppercase tracking-wider"><?= $nama_toko_aktif ?></div>
+        <button onclick="toggleSidebar()" class="md:hidden text-slate-400 hover:text-red-500 absolute right-4 top-6 bg-slate-100 w-8 h-8 rounded-full flex items-center justify-center"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+
+    <!-- Navigation List -->
+    <nav class="flex-1 overflow-y-auto sidebar-scroll px-3 py-4 space-y-1">
+        
+        <?php if(!in_array($role, ['invoice', 'driver', 'chef', 'ahli_gizi'])): ?>
+        <a href="index.php?page=dashboard" class="nav-btn <?= $page=='dashboard' ? 'nav-active' : '' ?>">
+            <div class="flex items-center"><i class="fa-solid fa-grid-2 w-6 text-center text-indigo-500 text-lg"></i><span class="ml-2">Dashboard</span></div>
+        </a>
+        <?php endif; ?>
+        
+        <!-- 1. MANAJEMEN DAPUR -->
+        <?php if(in_array($role, ['admin', 'chef', 'ahli_gizi'])): ?>
+        <?php $is_open = in_array($page, $menu_dapur); ?>
+        <div>
+            <div onclick="toggleSidebarMenu('menu-dapur')" class="nav-btn <?= $is_open ? 'bg-slate-50' : '' ?>">
+                <div class="flex items-center"><i class="fa-solid fa-kitchen-set w-6 text-center text-orange-500 text-lg"></i><span class="ml-2">Manajemen Dapur</span></div>
+                <i class="fa-solid fa-chevron-down text-[10px] text-slate-400 arrow-icon" id="arrow-dapur" style="transform: <?= $is_open ? 'rotate(180deg)' : 'rotate(0deg)' ?>"></i>
+            </div>
+            <div id="menu-dapur" class="submenu-container mt-1 space-y-1 <?= $is_open ? '' : 'hidden' ?>">
+                <a href="index.php?page=master_konversi" class="sub-link <?= $page=='master_konversi' ? 'sub-active' : '' ?>">Konversi Penyusutan</a>
+                <?php if(in_array($role, ['admin', 'chef'])): ?><a href="index.php?page=panel_chef" class="sub-link <?= $page=='panel_chef' ? 'sub-active' : '' ?>">Panel Chef</a><?php endif; ?>
+                <?php if(in_array($role, ['admin', 'ahli_gizi', 'chef'])): ?><a href="index.php?page=panel_gizi" class="sub-link <?= $page=='panel_gizi' ? 'sub-active' : '' ?>">Hitung Belanja (Gizi)</a><?php endif; ?>
+                <?php if(in_array($role, ['admin', 'ahli_gizi'])): ?><a href="index.php?page=cek_gizi" class="sub-link <?= $page=='cek_gizi' ? 'sub-active' : '' ?>">Cek Kalori (API)</a><?php endif; ?>
+            </div>
+        </div>
+        <?php endif; ?>
+
+        <!-- 2. PORTAL PELANGGAN -->
+        <?php if($role == 'pelanggan' || $role == 'invoice'): ?>
+        <?php $is_open = in_array($page, $menu_pelanggan); ?>
+        <div>
+            <div onclick="toggleSidebarMenu('menu-pelanggan')" class="nav-btn <?= $is_open ? 'bg-slate-50' : '' ?>">
+                <div class="flex items-center"><i class="fa-solid fa-users w-6 text-center text-pink-500 text-lg"></i><span class="ml-2">Portal Pelanggan</span></div>
+                <i class="fa-solid fa-chevron-down text-[10px] text-slate-400 arrow-icon" id="arrow-pelanggan" style="transform: <?= $is_open ? 'rotate(180deg)' : 'rotate(0deg)' ?>"></i>
+            </div>
+            <div id="menu-pelanggan" class="submenu-container mt-1 space-y-1 <?= $is_open ? '' : 'hidden' ?>">
+                <a href="index.php?page=order_pelanggan" class="sub-link <?= $page=='order_pelanggan' ? 'sub-active' : '' ?>">Buat Pesanan Baru</a>
+                <a href="index.php?page=riwayat_pesanan" class="sub-link <?= $page=='riwayat_pesanan' ? 'sub-active' : '' ?>">Riwayat & Retur</a>
+                <a href="index.php?page=monitoring_armada" class="sub-link <?= $page=='monitoring_armada' ? 'sub-active text-indigo-600' : '' ?>">Lacak Driver Saya</a>
+            </div>
+        </div>
+        <?php endif; ?>
+
+        <!-- AREA UTAMA (Bukan Pelanggan/Driver/Dapur) -->
+        <?php if(!in_array($role, ['pelanggan', 'driver', 'chef', 'ahli_gizi'])): ?>
+            
+            <div class="pt-5 pb-1 px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Sistem Utama</div>
+
+            <!-- 3. MASTER DATA -->
+            <?php if(in_array($role, ['admin', 'po', 'accounting'])): ?>
+            <?php $is_open = in_array($page, $menu_master); ?>
+            <div>
+                <div onclick="toggleSidebarMenu('menu-master')" class="nav-btn <?= $is_open ? 'bg-slate-50' : '' ?>">
+                    <div class="flex items-center"><i class="fa-solid fa-database w-6 text-center text-emerald-500 text-lg"></i><span class="ml-2">Master Data</span></div>
+                    <i class="fa-solid fa-chevron-down text-[10px] text-slate-400 arrow-icon" id="arrow-master" style="transform: <?= $is_open ? 'rotate(180deg)' : 'rotate(0deg)' ?>"></i>
+                </div>
+                <div id="menu-master" class="submenu-container mt-1 space-y-1 <?= $is_open ? '' : 'hidden' ?>">
+                    <a href="index.php?page=barang" class="sub-link <?= $page=='barang' ? 'sub-active' : '' ?>">Data Barang</a>
+                    <a href="index.php?page=supplier" class="sub-link <?= $page=='supplier' ? 'sub-active' : '' ?>">Data Supplier</a>
+                    <a href="index.php?page=pelanggan" class="sub-link <?= $page=='pelanggan' ? 'sub-active' : '' ?>">Data Pelanggan</a>
+                    <a href="index.php?page=audit_stok" class="block py-2.5 px-4 rounded transition duration-200 hover:bg-indigo-700 hover:text-white mt-1">
+    <i class="fa-solid fa-user-secret w-5 text-center"></i> Audit Stok AI
+</a>
+                    <?php if($role == 'admin'): ?><a href="index.php?page=user" class="sub-link <?= $page=='user' ? 'sub-active text-rose-600' : 'text-rose-500' ?>">User & Akses</a><?php endif; ?>
+                </div>
+            </div>
+            <?php endif; ?>
+
+            <!-- 4. PEMBELIAN & GUDANG -->
+            <?php if(in_array($role, ['admin', 'po', 'invoice'])): ?>
+            <?php $is_open = in_array($page, $menu_beli) || ($role == 'invoice' && $page == 'barang') || ($role == 'invoice' && in_array($page, ['order_pelanggan', 'riwayat_pesanan'])); ?>
+            <div>
+                <div onclick="toggleSidebarMenu('menu-beli')" class="nav-btn <?= $is_open ? 'bg-slate-50' : '' ?>">
+                    <div class="flex items-center">
+                        <i class="fa-solid fa-truck-ramp-box w-6 text-center text-cyan-500 text-lg"></i><span class="ml-2">Stok & Restock</span>
+                        <?php if($cek_app > 0 && in_array($role, ['admin', 'po'])): ?><span class="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full ml-2 animate-pulse"><?= $cek_app ?></span><?php endif; ?>
+                    </div>
+                    <i class="fa-solid fa-chevron-down text-[10px] text-slate-400 arrow-icon" id="arrow-beli" style="transform: <?= $is_open ? 'rotate(180deg)' : 'rotate(0deg)' ?>"></i>
+                </div>
+                <div id="menu-beli" class="submenu-container mt-1 space-y-1 <?= $is_open ? '' : 'hidden' ?>">
+                    <?php if(in_array($role, ['admin', 'po'])): ?>
+                        <a href="index.php?page=update_stok_mobile" class="sub-link <?= $page=='update_stok_mobile' ? 'sub-active' : '' ?>">Update Stok Mobile</a>
+                        <?php if($role == 'admin'): ?>
+                        <a href="index.php?page=approval" class="sub-link <?= $page=='approval' ? 'sub-active' : '' ?> flex justify-between pr-4">Persetujuan PO <?php if($cek_app>0) echo "<span class='text-red-500 font-bold'>$cek_app</span>"; ?></a>
+                        <?php endif; ?>
+                        <a href="index.php?page=po" class="sub-link <?= $page=='po' ? 'sub-active' : '' ?>">Buat PO Baru</a>
+                        <a href="index.php?page=barang_masuk" class="sub-link <?= $page=='barang_masuk' ? 'sub-active' : '' ?>">Barang Masuk (BM)</a>
+                        <a href="index.php?page=rekap_pembelian" class="sub-link <?= $page=='rekap_pembelian' ? 'sub-active' : '' ?>">Rekap Nota Beli</a>
+                        <a href="index.php?page=retur_pembelian" class="sub-link <?= $page=='retur_pembelian' ? 'sub-active text-rose-600' : 'text-rose-500' ?>">Retur ke Supplier</a>
+                    <?php endif; ?>
+                    
+                    <?php if($role == 'invoice'): ?>
+                        <a href="index.php?page=order_pelanggan" class="sub-link <?= $page=='order_pelanggan' ? 'sub-active' : '' ?>">Order Bahan Baku</a>
+                        <a href="index.php?page=riwayat_pesanan" class="sub-link <?= $page=='riwayat_pesanan' ? 'sub-active' : '' ?>">Riwayat Order</a>
+                        <a href="index.php?page=barang" class="sub-link <?= $page=='barang' ? 'sub-active' : '' ?>">Stok Gudang</a>
+                    <?php endif; ?>
+                </div>
+            </div>
+            <?php endif; ?>
+
+            <!-- 5. PENJUALAN & OPERASIONAL -->
+            <?php $is_open = in_array($page, $menu_jual); ?>
+            <div>
+                <div onclick="toggleSidebarMenu('menu-jual')" class="nav-btn <?= $is_open ? 'bg-slate-50' : '' ?>">
+                    <div class="flex items-center"><i class="fa-solid fa-cart-shopping w-6 text-center text-blue-500 text-lg"></i><span class="ml-2">Penjualan (Sales)</span></div>
+                    <i class="fa-solid fa-chevron-down text-[10px] text-slate-400 arrow-icon" id="arrow-jual" style="transform: <?= $is_open ? 'rotate(180deg)' : 'rotate(0deg)' ?>"></i>
+                </div>
+                <div id="menu-jual" class="submenu-container mt-1 space-y-1 <?= $is_open ? '' : 'hidden' ?>">
+                    <?php if(in_array($role, ['admin', 'po', 'invoice'])): ?>
+                    <a href="index.php?page=pos" class="sub-link <?= $page=='pos' ? 'sub-active' : '' ?>">Kasir (POS)</a>
+                    <a href="index.php?page=input_surat_jalan" class="sub-link <?= $page=='input_surat_jalan' ? 'sub-active' : '' ?>">Input Surat Jalan</a>
+                    <?php endif; ?>
+                    <a href="index.php?page=riwayat_jual" class="sub-link <?= $page=='riwayat_jual' ? 'sub-active' : '' ?>">Riwayat & Invoice</a>
+                    <a href="index.php?page=list_surat_jalan" class="sub-link <?= $page=='list_surat_jalan' ? 'sub-active' : '' ?>">Cetak Surat Jalan</a>
+                    
+                    <?php if(in_array($role, ['admin', 'po'])): ?>
+                    <a href="index.php?page=pesanan_masuk" class="sub-link <?= $page=='pesanan_masuk' ? 'sub-active' : '' ?>">Pesanan Masuk</a>
+                    <a href="index.php?page=tracking_driver" class="sub-link <?= $page=='tracking_driver' ? 'sub-active' : '' ?>">Pantau Driver (Live)</a>
+                    <a href="index.php?page=data_retur" class="sub-link <?= $page=='data_retur' ? 'sub-active text-rose-600' : 'text-rose-500' ?>">Retur dari Customer</a>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+            <!-- 6. KEUANGAN & LAPORAN -->
+            <?php if(in_array($role, ['admin', 'accounting', 'po', 'invoice'])): ?>
+            <?php $is_open = in_array($page, $menu_keuangan); ?>
+            <div>
+                <div onclick="toggleSidebarMenu('menu-keuangan')" class="nav-btn <?= $is_open ? 'bg-slate-50' : '' ?>">
+                    <div class="flex items-center"><i class="fa-solid fa-chart-pie w-6 text-center text-rose-500 text-lg"></i><span class="ml-2">Keuangan & Report</span></div>
+                    <i class="fa-solid fa-chevron-down text-[10px] text-slate-400 arrow-icon" id="arrow-keuangan" style="transform: <?= $is_open ? 'rotate(180deg)' : 'rotate(0deg)' ?>"></i>
+                </div>
+                <div id="menu-keuangan" class="submenu-container mt-1 space-y-1 <?= $is_open ? '' : 'hidden' ?>">
+                    <a href="index.php?page=keuangan" class="sub-link <?= $page=='keuangan' ? 'sub-active' : '' ?>">Buku Arus Kas</a>
+                    <?php if(in_array($role, ['admin', 'accounting', 'invoice'])): ?>
+                    <a href="index.php?page=coa" class="sub-link <?= $page=='coa' ? 'sub-active' : '' ?>">Daftar Akun (COA)</a>
+                    <a href="index.php?page=jurnal_umum" class="sub-link <?= $page=='jurnal_umum' ? 'sub-active' : '' ?>">Jurnal Umum</a>
+                    <a href="index.php?page=neraca_saldo" class="sub-link <?= $page=='neraca_saldo' ? 'sub-active' : '' ?>">Neraca Saldo</a>
+                    <?php endif; ?>
+                    <a href="index.php?page=laporan_laba_rugi" class="sub-link <?= $page=='laporan_laba_rugi' ? 'sub-active' : '' ?>">Laba Rugi</a>
+                    <a href="laporan_cetak.php?jenis=penjualan&tgl_awal=<?=date('Y-m-01')?>&tgl_akhir=<?=date('Y-m-d')?>" target="_blank" class="sub-link">Rekap Penjualan</a>
+                </div>
+            </div>
+            <?php endif; ?>
+            
+            
+            
+            
+
+            <!-- 7. PENGATURAN -->
+            <?php if($role == 'admin'): ?>
+            <div class="mt-2">
+                <a href="index.php?page=pengaturan" class="nav-btn <?= $page=='pengaturan' ? 'nav-active' : '' ?>">
+                    <div class="flex items-center"><i class="fa-solid fa-gear w-6 text-center text-slate-400 text-lg"></i><span class="ml-2">Pengaturan</span></div>
+                </a>
+            </div>
+            <?php endif; ?>
+
+        <?php endif; ?> 
+
+        <!-- 8. MENU DRIVER -->
+        <?php if($role == 'driver'): ?>
+        <?php $is_open = in_array($page, $menu_driver) || in_array($page, ['input_surat_jalan', 'list_surat_jalan']); ?>
+        <div>
+            <div onclick="toggleSidebarMenu('menu-driver')" class="nav-btn <?= $is_open ? 'bg-slate-50' : '' ?>">
+                <div class="flex items-center"><i class="fa-solid fa-steering-wheel w-6 text-center text-green-500 text-lg"></i><span class="ml-2">Portal Driver</span></div>
+                <i class="fa-solid fa-chevron-down text-[10px] text-slate-400 arrow-icon" id="arrow-driver" style="transform: <?= $is_open ? 'rotate(180deg)' : 'rotate(0deg)' ?>"></i>
+            </div>
+            <div id="menu-driver" class="submenu-container mt-1 space-y-1 <?= $is_open ? '' : 'hidden' ?>">
+                <a href="index.php?page=driver_panel" class="sub-link <?= $page=='driver_panel' ? 'sub-active' : '' ?>">Panel Driver</a>
+                <?php 
+                $nama_user_driver = strtolower($_SESSION['nama'] ?? '');
+                if(in_array($nama_user_driver, ['gilang', 'dzifki'])): 
+                ?>
+                <a href="index.php?page=input_surat_jalan" class="sub-link <?= $page=='input_surat_jalan' ? 'sub-active' : '' ?>">Input Surat Jalan</a>
+                <a href="index.php?page=list_surat_jalan" class="sub-link <?= $page=='list_surat_jalan' ? 'sub-active' : '' ?>">Cetak Surat Jalan</a>
+                <?php endif; ?>
+            </div>
+        </div>
+        <?php endif; ?>
+
+    </nav>
+    
+    <!-- Footer Sidebar -->
+    <div class="p-4 border-t border-slate-100 bg-slate-50/80">
+        <a href="logout.php" class="flex items-center justify-center w-full px-4 py-2.5 text-sm font-bold text-rose-500 bg-white border border-rose-100 hover:bg-rose-50 hover:border-rose-200 rounded-xl transition-all shadow-sm group">
+            <i class="fa-solid fa-power-off mr-2 group-hover:scale-110 transition-transform"></i><span>Keluar Sistem</span>
+        </a>
+    </div>
+</aside>
+
+<!-- Popup Install iOS -->
+<div id="ios-install-prompt">
+    <div class="flex items-center justify-between mb-2">
+        <span class="font-bold text-slate-800">Install Aplikasi ke iPhone?</span>
+        <button onclick="document.getElementById('ios-install-prompt').style.display='none'" class="text-slate-400 hover:text-red-500"><i class="fa-solid fa-times text-lg"></i></button>
+    </div>
+    <p class="text-sm text-slate-600 mb-3">Aplikasi ini bisa dipasang di iPhone agar lebih mudah diakses.</p>
+    <div class="text-xs text-slate-600 bg-slate-50 border border-slate-200 p-3 rounded-xl text-left leading-relaxed">
+        1. Ketuk ikon <strong>Share</strong> <i class="fa-solid fa-arrow-up-from-bracket mx-1 text-blue-500"></i> di Safari.<br>
+        2. Pilih menu <strong>"Add to Home Screen"</strong> (Tambah ke Utama).<br>
+        3. Klik <strong>Add</strong> (Tambah).
+    </div>
+</div>
+
+<script>
+// Logika Animasi Buka/Tutup Folder Accordion
+function toggleSidebarMenu(id) {
+    const menu = document.getElementById(id);
+    const arrow = document.getElementById(id.replace('menu-', 'arrow-'));
+    
+    if (menu.classList.contains('hidden')) {
+        menu.classList.remove('hidden');
+        if(arrow) arrow.style.transform = 'rotate(180deg)';
+    } else {
+        menu.classList.add('hidden');
+        if(arrow) arrow.style.transform = 'rotate(0deg)';
+    }
+}
+
+// Logika Buka/Tutup Sidebar (Mode HP)
+function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    if (sidebar.classList.contains('-translate-x-full')) {
+        sidebar.classList.remove('-translate-x-full');
+        overlay.classList.remove('hidden');
+    } else {
+        sidebar.classList.add('-translate-x-full');
+        overlay.classList.add('hidden');
+    }
+}
+
+// Logika Deteksi Install iOS
+const isIos = () => {
+  const userAgent = window.navigator.userAgent.toLowerCase();
+  return /iphone|ipad|ipod/.test( userAgent );
+}
+const isInStandaloneMode = () => ('standalone' in window.navigator) && (window.navigator.standalone);
+
+if (isIos() && !isInStandaloneMode()) {
+    setTimeout(() => {
+        document.getElementById('ios-install-prompt').style.display = 'block';
+    }, 3000);
+}
+</script>

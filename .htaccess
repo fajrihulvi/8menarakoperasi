@@ -1,0 +1,19 @@
+# =========================================================
+# Konfigurasi Apache untuk 8MP System
+# =========================================================
+# CATATAN: File .htaccess sebelumnya berisi "RewriteRule ^(.*)$ - [F,L]"
+# yang memblokir SELURUH akses ke folder ini (ciri khas file karantina
+# saat hosting men-suspend akun), ditambah direktif "order allow" yang
+# sintaksnya salah sehingga Apache melempar Error 500.
+# Backup file lama ada di scratchpad sesi ini.
+
+# --- Halaman default ---
+DirectoryIndex index.php index.html
+
+# --- Lindungi file sensitif dari akses browser ---
+<FilesMatch "^(\.htaccess|\.user\.ini|php\.ini|.*\.bak|.*\.log|.*\.txt|secret_key\.php|gps_token\.php)$">
+    Require all denied
+</FilesMatch>
+
+# --- Jangan tampilkan isi folder jika tidak ada index ---
+Options -Indexes

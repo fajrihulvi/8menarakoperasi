@@ -1,0 +1,229 @@
+[29-Jul-2026 13:52:31 Asia/Jakarta] PHP Fatal error:  Uncaught mysqli_sql_exception: No such file or directory in /home/pgkr6179/public_html/8mp.store/config/koneksi.php:31
+Stack trace:
+#0 /home/pgkr6179/public_html/8mp.store/config/koneksi.php(31): mysqli_connect('localhost', 'pgkr6179_gudang', Object(SensitiveParameterValue), 'pgkr6179_gudang')
+#1 /home/pgkr6179/public_html/8mp.store/pages/ajax_notif.php(6): require('/home/pgkr6179/...')
+#2 {main}
+  thrown in /home/pgkr6179/public_html/8mp.store/config/koneksi.php on line 31
+[29-Jul-2026 13:52:36 Asia/Jakarta] PHP Fatal error:  Uncaught mysqli_sql_exception: No such file or directory in /home/pgkr6179/public_html/8mp.store/config/koneksi.php:31
+Stack trace:
+#0 /home/pgkr6179/public_html/8mp.store/config/koneksi.php(31): mysqli_connect('localhost', 'pgkr6179_gudang', Object(SensitiveParameterValue), 'pgkr6179_gudang')
+#1 /home/pgkr6179/public_html/8mp.store/pages/ajax_notif.php(6): require('/home/pgkr6179/...')
+#2 {main}
+  thrown in /home/pgkr6179/public_html/8mp.store/config/koneksi.php on line 31
+[29-Jul-2026 14:28:21 Asia/Jakarta] PHP Fatal error:  Uncaught mysqli_sql_exception: No such file or directory in /home/pgkr6179/public_html/8mp.store/config/koneksi.php:31
+Stack trace:
+#0 /home/pgkr6179/public_html/8mp.store/config/koneksi.php(31): mysqli_connect('localhost', 'pgkr6179_gudang', Object(SensitiveParameterValue), 'pgkr6179_gudang')
+#1 /home/pgkr6179/public_html/8mp.store/pages/ajax_notif.php(6): require('/home/pgkr6179/...')
+#2 {main}
+  thrown in /home/pgkr6179/public_html/8mp.store/config/koneksi.php on line 31
+[29-Jul-2026 15:35:45 Asia/Jakarta] PHP Fatal error:  Uncaught mysqli_sql_exception: No such file or directory in /home/pgkr6179/public_html/8mp.store/config/koneksi.php:31
+Stack trace:
+#0 /home/pgkr6179/public_html/8mp.store/config/koneksi.php(31): mysqli_connect('localhost', 'pgkr6179_gudang', Object(SensitiveParameterValue), 'pgkr6179_gudang')
+#1 /home/pgkr6179/public_html/8mp.store/pages/ajax_notif.php(6): require('/home/pgkr6179/...')
+#2 {main}
+  thrown in /home/pgkr6179/public_html/8mp.store/config/koneksi.php on line 31
+[29-Jul-2026 16:03:16 Asia/Jakarta] PHP Fatal error:  Uncaught mysqli_sql_exception: No such file or directory in /home/pgkr6179/public_html/8mp.store/config/koneksi.php:31
+Stack trace:
+#0 /home/pgkr6179/public_html/8mp.store/config/koneksi.php(31): mysqli_connect('localhost', 'pgkr6179_gudang', Object(SensitiveParameterValue), 'pgkr6179_gudang')
+#1 /home/pgkr6179/public_html/8mp.store/pages/ajax_notif.php(6): require('/home/pgkr6179/...')
+#2 {main}
+  thrown in /home/pgkr6179/public_html/8mp.store/config/koneksi.php on line 31
+[29-Jul-2026 16:03:16 Asia/Jakarta] PHP Fatal error:  Uncaught mysqli_sql_exception: No such file or directory in /home/pgkr6179/public_html/8mp.store/config/koneksi.php:31
+Stack trace:
+#0 /home/pgkr6179/public_html/8mp.store/config/koneksi.php(31): mysqli_connect('localhost', 'pgkr6179_gudang', Object(SensitiveParameterValue), 'pgkr6179_gudang')
+#1 /home/pgkr6179/public_html/8mp.store/pages/ajax_notif.php(6): require('/home/pgkr6179/...')
+#2 {main}
+  thrown in /home/pgkr6179/public_html/8mp.store/config/koneksi.php on line 31
+[11-Aug-2026 13:20:23 Asia/Jakarta] PHP Warning:  require(config/koneksi.php): Failed to open stream: No such file or directory in /home/pgkr6179/public_html/8mp.store/pages/panel_chef.php on line 4
+[11-Aug-2026 13:20:23 Asia/Jakarta] PHP Fatal error:  Uncaught Error: Failed opening required 'config/koneksi.php' (include_path='.:/opt/cpanel/ea-php82/root/usr/share/pear') in /home/pgkr6179/public_html/8mp.store/pages/panel_chef.php:4
+Stack trace:
+#0 {main}
+  thrown in /home/pgkr6179/public_html/8mp.store/pages/panel_chef.php on line 4
+[11-Aug-2026 13:20:25 Asia/Jakarta] PHP Warning:  require(config/koneksi.php): Failed to open stream: No such file or directory in /home/pgkr6179/public_html/8mp.store/pages/panel_chef.php on line 4
+[11-Aug-2026 13:20:25 Asia/Jakarta] PHP Fatal error:  Uncaught Error: Failed opening required 'config/koneksi.php' (include_path='.:/opt/cpanel/ea-php82/root/usr/share/pear') in /home/pgkr6179/public_html/8mp.store/pages/panel_chef.php:4
+Stack trace:
+#0 {main}
+  thrown in /home/pgkr6179/public_html/8mp.store/pages/panel_chef.php on line 4
+[11-Aug-2026 13:20:52 Asia/Jakarta] PHP Warning:  Undefined array key "role" in /home/pgkr6179/public_html/8mp.store/pages/ajax_video_signal.php on line 10
+[11-Aug-2026 13:21:30 Asia/Jakarta] PHP Warning:  Undefined array key "role" in /home/pgkr6179/public_html/8mp.store/pages/video_room.php on line 6
+[11-Aug-2026 13:21:36 Asia/Jakarta] PHP Fatal error:  Uncaught TypeError: mysqli_query(): Argument #1 ($mysql) must be of type mysqli, null given in /home/pgkr6179/public_html/8mp.store/pages/user.php:6
+Stack trace:
+#0 /home/pgkr6179/public_html/8mp.store/pages/user.php(6): mysqli_query(NULL, 'SHOW COLUMNS FR...')
+#1 {main}
+  thrown in /home/pgkr6179/public_html/8mp.store/pages/user.php on line 6
+[11-Aug-2026 13:21:40 Asia/Jakarta] PHP Warning:  session_start(): Session cannot be started after headers have already been sent in /home/pgkr6179/public_html/8mp.store/pages/list_surat_jalan.php on line 27
+[11-Aug-2026 13:21:40 Asia/Jakarta] PHP Warning:  Undefined global variable $_SESSION in /home/pgkr6179/public_html/8mp.store/pages/list_surat_jalan.php on line 28
+[11-Aug-2026 13:21:40 Asia/Jakarta] PHP Warning:  Trying to access array offset on value of type null in /home/pgkr6179/public_html/8mp.store/pages/list_surat_jalan.php on line 28
+[11-Aug-2026 13:21:40 Asia/Jakarta] PHP Warning:  Undefined variable $conn in /home/pgkr6179/public_html/8mp.store/pages/list_surat_jalan.php on line 31
+[11-Aug-2026 13:21:40 Asia/Jakarta] PHP Fatal error:  Uncaught TypeError: mysqli_query(): Argument #1 ($mysql) must be of type mysqli, null given in /home/pgkr6179/public_html/8mp.store/pages/list_surat_jalan.php:31
+Stack trace:
+#0 /home/pgkr6179/public_html/8mp.store/pages/list_surat_jalan.php(31): mysqli_query(NULL, '\r\n             ...')
+#1 {main}
+  thrown in /home/pgkr6179/public_html/8mp.store/pages/list_surat_jalan.php on line 31
+[11-Aug-2026 13:21:49 Asia/Jakarta] PHP Warning:  require(config/koneksi.php): Failed to open stream: No such file or directory in /home/pgkr6179/public_html/8mp.store/pages/konversi_gizi.php on line 3
+[11-Aug-2026 13:21:49 Asia/Jakarta] PHP Fatal error:  Uncaught Error: Failed opening required 'config/koneksi.php' (include_path='.:/opt/cpanel/ea-php82/root/usr/share/pear') in /home/pgkr6179/public_html/8mp.store/pages/konversi_gizi.php:3
+Stack trace:
+#0 {main}
+  thrown in /home/pgkr6179/public_html/8mp.store/pages/konversi_gizi.php on line 3
+[11-Aug-2026 13:21:52 Asia/Jakarta] PHP Warning:  Undefined array key "role" in /home/pgkr6179/public_html/8mp.store/pages/driver_panel1.php on line 4
+[11-Aug-2026 13:22:06 Asia/Jakarta] PHP Warning:  Undefined array key "role" in /home/pgkr6179/public_html/8mp.store/pages/driver_panel.php on line 4
+[11-Aug-2026 13:22:18 Asia/Jakarta] PHP Warning:  Undefined global variable $_SESSION in /home/pgkr6179/public_html/8mp.store/pages/supplier.php on line 33
+[11-Aug-2026 13:22:18 Asia/Jakarta] PHP Warning:  Trying to access array offset on value of type null in /home/pgkr6179/public_html/8mp.store/pages/supplier.php on line 33
+[11-Aug-2026 13:22:18 Asia/Jakarta] PHP Warning:  Undefined variable $conn in /home/pgkr6179/public_html/8mp.store/pages/supplier.php on line 53
+[11-Aug-2026 13:22:18 Asia/Jakarta] PHP Fatal error:  Uncaught TypeError: mysqli_query(): Argument #1 ($mysql) must be of type mysqli, null given in /home/pgkr6179/public_html/8mp.store/pages/supplier.php:53
+Stack trace:
+#0 /home/pgkr6179/public_html/8mp.store/pages/supplier.php(53): mysqli_query(NULL, 'SELECT * FROM s...')
+#1 {main}
+  thrown in /home/pgkr6179/public_html/8mp.store/pages/supplier.php on line 53
+[22-Aug-2026 14:16:27 UTC] PHP Warning:  Undefined variable $conn in /home/dlhoqhrj/public_html/pages/histori_barang.php on line 14
+[22-Aug-2026 14:16:27 UTC] PHP Fatal error:  Uncaught TypeError: mysqli_query(): Argument #1 ($mysql) must be of type mysqli, null given in /home/dlhoqhrj/public_html/pages/histori_barang.php:14
+Stack trace:
+#0 /home/dlhoqhrj/public_html/pages/histori_barang.php(14): mysqli_query(NULL, 'QUERY_SQL_DI_AT...')
+#1 {main}
+  thrown in /home/dlhoqhrj/public_html/pages/histori_barang.php on line 14
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 18:50:55 UTC] PHP Warning:  preg_match(): Compilation failed: missing closing parenthesis at offset 24 in /home/dlhoqhrj/public_html/pages/api_analyst.php on line 225
+[22-Aug-2026 19:17:11 UTC] PHP Parse error:  syntax error, unexpected token "..." in /home/dlhoqhrj/public_html/pages/editor.php on line 258

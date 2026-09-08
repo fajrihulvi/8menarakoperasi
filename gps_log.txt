@@ -1,0 +1,16 @@
+2026-02-09 01:35:28 | Masuk: ID=, Lat=, Lon= 
+2026-02-09 01:35:28 | Masuk: ID=, Lat=, Lon= 
+2026-02-09 01:35:28 | Masuk: ID=, Lat=, Lon= 
+2026-02-09 01:35:28 | Masuk: ID=, Lat=, Lon= 
+2026-02-09 01:35:28 | Masuk: ID=, Lat=, Lon= 
+2026-02-09 01:35:28 | Masuk: ID=, Lat=, Lon= 
+2026-02-09 01:35:28 | Masuk: ID=, Lat=, Lon= 
+2026-02-09 01:35:28 | Masuk: ID=, Lat=, Lon= 
+2026-02-09 01:35:28 | Masuk: ID=, Lat=, Lon= 
+2026-02-09 01:35:41 | Masuk: ID=, Lat=, Lon= 
+2026-02-09 01:35:46 | Masuk: ID=91485168, Lat=-6.200000, Lon=106.816666 
+2026-02-09 01:35:47 | Masuk: ID=91485168, Lat=-6.200000, Lon=106.816666 
+2026-02-09 01:35:59 | Masuk: ID=GEMA, Lat=-6.200000, Lon=106.816666 
+2026-02-09 01:38:03 | Masuk: ID=, Lat=, Lon= 
+2026-02-09 01:39:28 | Masuk: ID=tes_driver, Lat=-6.200, Lon=106.800 
+2026-02-09 01:39:35 | Masuk: ID=tes_driver, Lat=-6.200, Lon=106.800 
