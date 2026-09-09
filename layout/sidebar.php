@@ -22,7 +22,7 @@ if(boleh_buka('approval')) {
 // ==========================================
 $menu_dapur     = ['master_konversi', 'panel_chef', 'panel_gizi', 'cek_gizi'];
 $menu_pelanggan = ['order_pelanggan', 'riwayat_pesanan', 'monitoring_armada'];
-$menu_master    = ['barang', 'supplier', 'warehouse', 'pelanggan', 'user', 'audit_stok', 'histori_barang'];
+$menu_master    = ['barang', 'kategori', 'supplier', 'warehouse', 'pelanggan', 'user', 'audit_stok', 'histori_barang'];
 $menu_beli      = ['update_stok_mobile', 'approval', 'po', 'barang_masuk', 'rekap_pembelian', 'retur_pembelian', 'tambah_retur_pembelian'];
 $menu_jual      = ['pos', 'input_surat_jalan', 'riwayat_jual', 'list_surat_jalan', 'tracking_driver', 'pesanan_masuk', 'data_retur', 'edit_invoice', 'penjualan', 'histori_transaksi'];
 $menu_keuangan  = ['keuangan', 'coa', 'jurnal_umum', 'neraca_saldo', 'laporan_laba_rugi', 'laporan'];
@@ -205,6 +205,7 @@ $menu_driver    = ['driver_panel']; // Input SJ & List SJ driver numpang di menu
             <!-- 3. MASTER DATA -->
             <?php folder_menu('master', 'Master Data', 'fa-database', 'text-emerald-500', kumpulkan([
                 'barang'     => 'Data Barang',
+                'kategori'   => 'Data Kategori',
                 'supplier'   => 'Data Supplier',
                 'warehouse'  => 'Data Warehouse',
                 'pelanggan'  => 'Data Pelanggan',

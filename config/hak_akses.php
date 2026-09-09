@@ -52,6 +52,7 @@ $PETA_HALAMAN = [
 
     // --- Master Data ---
     'barang'               => ['po', 'gudang', 'accounting', 'viewer', 'invoice'],
+    'kategori'             => ['po', 'gudang', 'accounting', 'viewer', 'invoice'],
     'supplier'             => ['po', 'gudang', 'viewer'],
     'warehouse'            => ['po', 'gudang', 'viewer'],
     'pelanggan'            => ['gudang', 'viewer'],
@@ -123,6 +124,13 @@ $PETA_AKSI = [
         'edit'   => [],
         'hapus'  => [],
         'import' => [],
+    ],
+
+    // Data Kategori: PO & Gudang boleh kelola
+    'kategori' => [
+        'tambah' => ['po', 'gudang'],
+        'edit'   => ['po', 'gudang'],
+        'hapus'  => [],           // hapus khusus admin
     ],
 
     // Data Supplier: PO & Gudang boleh kelola

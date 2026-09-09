@@ -58,8 +58,10 @@ if(isset($_POST['aksi_respon'])) {
                 $kat = $data['kategori']; $sup = $data['supplier_id']; $sat = $data['satuan'];
                 $hb = $data['harga_beli']; $hh = $data['harga_head']; $hj = $data['harga_jual'];
                 $stok = $data['stok_baru']; $min = $data['minimal_order'];
+                $kat_id = $data['kategori_id'] ?? null;
+                $kat_id_sql = $kat_id === null ? 'NULL' : "'" . (int)$kat_id . "'";
 
-                $run = mysqli_query($conn, "INSERT INTO barang (id_usaha, kode_barang, nama_barang, kategori, supplier_id, satuan, harga_beli, harga_head, harga_jual, stok, minimal_order) VALUES ('$id_usaha', '$kode', '$nama', '$kat', '$sup', '$sat', '$hb', '$hh', '$hj', '$stok', '$min')");
+                $run = mysqli_query($conn, "INSERT INTO barang (id_usaha, kode_barang, nama_barang, kategori, kategori_id, supplier_id, satuan, harga_beli, harga_head, harga_jual, stok, minimal_order) VALUES ('$id_usaha', '$kode', '$nama', '$kat', $kat_id_sql, '$sup', '$sat', '$hb', '$hh', '$hj', '$stok', '$min')");
                 if($run) $berhasil = true;
             }
 

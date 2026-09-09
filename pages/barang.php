@@ -15,15 +15,28 @@ $id_usaha_aktif = $_SESSION['id_usaha'] ?? 1;
 function cekAtauBuatSupplier($conn, $nama_supplier, $id_usaha) {
     $nama = trim(mysqli_real_escape_string($conn, $nama_supplier));
     if (empty($nama) || $nama == '-') return 0;
-    
+
     $cek = mysqli_query($conn, "SELECT id FROM supplier WHERE nama_supplier = '$nama' AND id_usaha = '$id_usaha' LIMIT 1");
-    if(mysqli_num_rows($cek) > 0) { 
-        $d = mysqli_fetch_assoc($cek); return $d['id']; 
-    } else { 
-        mysqli_query($conn, "INSERT INTO supplier (nama_supplier, alamat, no_telp, id_usaha) VALUES ('$nama', '-', '-', '$id_usaha')"); 
-        return mysqli_insert_id($conn); 
+    if(mysqli_num_rows($cek) > 0) {
+        $d = mysqli_fetch_assoc($cek); return $d['id'];
+    } else {
+        mysqli_query($conn, "INSERT INTO supplier (nama_supplier, alamat, no_telp, id_usaha) VALUES ('$nama', '-', '-', '$id_usaha')");
+        return mysqli_insert_id($conn);
     }
     return 0;
+}
+
+function cekAtauBuatKategori($conn, $nama_kategori, $id_usaha) {
+    $nama = trim(mysqli_real_escape_string($conn, $nama_kategori));
+    if (empty($nama)) return null;
+
+    $cek = mysqli_query($conn, "SELECT id FROM kategori WHERE nama_kategori = '$nama' AND id_usaha = '$id_usaha' LIMIT 1");
+    if(mysqli_num_rows($cek) > 0) {
+        $d = mysqli_fetch_assoc($cek); return $d['id'];
+    } else {
+        mysqli_query($conn, "INSERT INTO kategori (nama_kategori, id_usaha) VALUES ('$nama', '$id_usaha')");
+        return mysqli_insert_id($conn);
+    }
 }
 
 if(isset($_POST['cetak_pdf'])) {
@@ -201,7 +214,8 @@ if(isset($_POST['import_barang'])) {
             $file = fopen($fileName, "r"); fgetcsv($file); 
             $sukses = 0; $update = 0;
             while(($column = fgetcsv($file, 10000, ",")) !== FALSE) {
-                $kategori = mysqli_real_escape_string($conn, $column[1]); 
+                $kategori = mysqli_real_escape_string($conn, $column[1]);
+                $kategori_id = cekAtauBuatKategori($conn, $column[1], $id_usaha_aktif);
                 $nama_raw = mysqli_real_escape_string($conn, $column[2]);
                 $nama = ucwords(strtolower(trim($nama_raw)));
                 $nama_sup = $column[3]; $min_order = mysqli_real_escape_string($conn, $column[4]);
@@ -222,12 +236,14 @@ if(isset($_POST['import_barang'])) {
                 
                 if(mysqli_num_rows($cek) > 0) {
                     $d = mysqli_fetch_assoc($cek); $id = $d['id'];
-                    mysqli_query($conn, "UPDATE barang SET kategori='$kategori', supplier_id='$supplier_id', satuan='$satuan', minimal_order='$min_order', harga_beli='$harga_beli', harga_head='$harga_head', harga_jual='$harga_jual', harga_gabek='$harga_gabek', harga_kereta='$harga_kereta', harga_jebus='$harga_jebus' WHERE id='$id'");
+                    $kategori_id_sql = $kategori_id === null ? 'NULL' : "'$kategori_id'";
+                    mysqli_query($conn, "UPDATE barang SET kategori='$kategori', kategori_id=$kategori_id_sql, supplier_id='$supplier_id', satuan='$satuan', minimal_order='$min_order', harga_beli='$harga_beli', harga_head='$harga_head', harga_jual='$harga_jual', harga_gabek='$harga_gabek', harga_kereta='$harga_kereta', harga_jebus='$harga_jebus' WHERE id='$id'");
                     $update++;
                 } else {
                     $max = mysqli_fetch_assoc(mysqli_query($conn, "SELECT MAX(id) as m FROM barang"));
                     $kode = "BRG" . sprintf("%03s", $max['m'] + 1 + $sukses);
-                    mysqli_query($conn, "INSERT INTO barang (id_usaha, kode_barang, nama_barang, kategori, supplier_id, satuan, harga_beli, harga_head, harga_jual, harga_gabek, harga_kereta, harga_jebus, stok, minimal_order) VALUES ('$id_usaha_aktif', '$kode', '$nama', '$kategori', '$supplier_id', '$satuan', '$harga_beli', '$harga_head', '$harga_jual', '$harga_gabek', '$harga_kereta', '$harga_jebus', 0, '$min_order')");
+                    $kategori_id_sql = $kategori_id === null ? 'NULL' : "'$kategori_id'";
+                    mysqli_query($conn, "INSERT INTO barang (id_usaha, kode_barang, nama_barang, kategori, kategori_id, supplier_id, satuan, harga_beli, harga_head, harga_jual, harga_gabek, harga_kereta, harga_jebus, stok, minimal_order) VALUES ('$id_usaha_aktif', '$kode', '$nama', '$kategori', $kategori_id_sql, '$supplier_id', '$satuan', '$harga_beli', '$harga_head', '$harga_jual', '$harga_gabek', '$harga_kereta', '$harga_jebus', 0, '$min_order')");
                     $sukses++;
                 }
             }
@@ -242,9 +258,10 @@ if(isset($_POST['simpan_barang'])) {
     $__aksi_brg = !empty($_POST['id_barang']) ? 'edit' : 'tambah';
     tolak_jika_tidak_boleh($__aksi_brg, 'barang', 'index.php?page=barang');
     {
-        $kode = $_POST['kode_barang']; 
-        $kat = $_POST['kategori']; 
-        $nama_sup = $_POST['nama_supplier']; 
+        $kode = $_POST['kode_barang'];
+        $kat = $_POST['kategori'];
+        $kategori_id = cekAtauBuatKategori($conn, $kat, $id_usaha_aktif);
+        $nama_sup = $_POST['nama_supplier'];
         $satuan = $_POST['satuan'];
         
         $beli = (float) preg_replace("/[^0-9.]/", "", str_replace(',', '.', $_POST['harga_beli'])); 
@@ -278,7 +295,7 @@ if(isset($_POST['simpan_barang'])) {
         if($_SESSION['role'] == 'po') {
             $data_aksi = [
                 'id_barang'   => $id_barang, 'kode_barang' => $kode, 'nama_barang' => $nama,
-                'kategori'    => $kat, 'supplier_id' => $supplier_id, 'satuan'      => $satuan,
+                'kategori'    => $kat, 'kategori_id' => $kategori_id, 'supplier_id' => $supplier_id, 'satuan'      => $satuan,
                 'harga_beli'  => $beli, 'harga_head'  => $head, 'harga_jual'  => $jual,
                 'harga_gabek' => $harga_gabek, 'harga_kereta'=> $harga_kereta, 'harga_jebus' => $harga_jebus, 'stok_baru'   => $stok, 
                 'minimal_order' => $min_ord, 'min_stok' => $min_stok
@@ -309,10 +326,12 @@ if(isset($_POST['simpan_barang'])) {
                     mysqli_query($conn, "INSERT INTO riwayat_harga (barang_id, harga_beli_lama, harga_beli_baru, harga_jual_lama, harga_jual_baru, tgl_perubahan, user_id) VALUES ('$id_barang', '{$old['harga_beli']}', '$beli', '{$old['harga_jual']}', '$jual', NOW(), '$user_id')");
                 }
                 
-                $query = "UPDATE barang SET kode_barang='$kode', nama_barang='$nama', kategori='$kat', supplier_id='$supplier_id', satuan='$satuan', harga_beli='$beli', harga_head='$head', harga_jual='$jual', harga_gabek='$harga_gabek', harga_kereta='$harga_kereta', harga_jebus='$harga_jebus', stok='$stok', minimal_order='$min_ord', min_stok='$min_stok' WHERE id='$id_barang' AND id_usaha='$id_usaha_aktif'";
+                $kategori_id_sql = $kategori_id === null ? 'NULL' : "'$kategori_id'";
+                $query = "UPDATE barang SET kode_barang='$kode', nama_barang='$nama', kategori='$kat', kategori_id=$kategori_id_sql, supplier_id='$supplier_id', satuan='$satuan', harga_beli='$beli', harga_head='$head', harga_jual='$jual', harga_gabek='$harga_gabek', harga_kereta='$harga_kereta', harga_jebus='$harga_jebus', stok='$stok', minimal_order='$min_ord', min_stok='$min_stok' WHERE id='$id_barang' AND id_usaha='$id_usaha_aktif'";
                 catat_log($conn, "Edit Barang", "Update data barang: $nama");
             } else {
-                $query = "INSERT INTO barang (id_usaha, kode_barang, nama_barang, kategori, supplier_id, satuan, harga_beli, harga_head, harga_jual, harga_gabek, harga_kereta, harga_jebus, stok, minimal_order, min_stok) VALUES ('$id_usaha_aktif', '$kode', '$nama', '$kat', '$supplier_id', '$satuan', '$beli', '$head', '$jual', '$harga_gabek', '$harga_kereta', '$harga_jebus', '$stok', '$min_ord', '$min_stok')";
+                $kategori_id_sql = $kategori_id === null ? 'NULL' : "'$kategori_id'";
+                $query = "INSERT INTO barang (id_usaha, kode_barang, nama_barang, kategori, kategori_id, supplier_id, satuan, harga_beli, harga_head, harga_jual, harga_gabek, harga_kereta, harga_jebus, stok, minimal_order, min_stok) VALUES ('$id_usaha_aktif', '$kode', '$nama', '$kat', $kategori_id_sql, '$supplier_id', '$satuan', '$beli', '$head', '$jual', '$harga_gabek', '$harga_kereta', '$harga_jebus', '$stok', '$min_ord', '$min_stok')";
                 catat_log($conn, "Tambah Barang", "Menambah barang baru: $nama");
             }
             if(mysqli_query($conn, $query)) { echo "<script>alert('Data Barang Berhasil Disimpan!'); window.location='index.php?page=barang';</script>"; }
@@ -354,10 +373,10 @@ if(isset($_GET['hapus'])) {
             $kat_terpilih = trim((string) ($_GET['kategori'] ?? ''));
             $opsi_kat = '<select name="kategori" class="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white">'
                       . '<option value="">-- Semua Kategori --</option>';
-            $q_kat = mysqli_query($conn, "SELECT DISTINCT kategori FROM barang WHERE id_usaha='$id_usaha_aktif' AND kategori != '' ORDER BY kategori ASC");
+            $q_kat = mysqli_query($conn, "SELECT nama_kategori FROM kategori WHERE id_usaha='$id_usaha_aktif' ORDER BY nama_kategori ASC");
             while ($k = mysqli_fetch_assoc($q_kat)) {
-                $kv = htmlspecialchars($k['kategori'], ENT_QUOTES, 'UTF-8');
-                $opsi_kat .= '<option value="' . $kv . '"' . ($k['kategori'] === $kat_terpilih ? ' selected' : '') . '>' . $kv . '</option>';
+                $kv = htmlspecialchars($k['nama_kategori'], ENT_QUOTES, 'UTF-8');
+                $opsi_kat .= '<option value="' . $kv . '"' . ($k['nama_kategori'] === $kat_terpilih ? ' selected' : '') . '>' . $kv . '</option>';
             }
             $opsi_kat .= '</select>';
             ?>
@@ -552,7 +571,19 @@ if(isset($_GET['hapus'])) {
             <input type="hidden" name="id_barang" id="id_barang">
             <div class="grid grid-cols-2 gap-4 mb-3">
                 <div><label class="block text-xs font-bold text-gray-500">Kode Barang</label><input type="text" name="kode_barang" id="kode_barang" class="w-full border p-2 rounded" required></div>
-                <div><label class="block text-xs font-bold text-gray-500">Kategori</label><input list="list_kategori" name="kategori" id="kategori" class="w-full border p-2 rounded"><datalist id="list_kategori"><option value="Umum"><option value="Makanan"><option value="Minuman"><option value="Bakery"><option value="Elektronik"><option value="Operasional"></datalist></div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500">Kategori</label>
+                    <select name="kategori" id="kategori" class="w-full border p-2 rounded">
+                        <option value="">-- Pilih Kategori --</option>
+                        <?php
+                        $qk = mysqli_query($conn, "SELECT nama_kategori FROM kategori WHERE id_usaha = '$id_usaha_aktif' ORDER BY nama_kategori ASC");
+                        while($k = mysqli_fetch_assoc($qk)) {
+                            $kv = htmlspecialchars($k['nama_kategori'], ENT_QUOTES, 'UTF-8');
+                            echo "<option value=\"$kv\">$kv</option>";
+                        }
+                        ?>
+                    </select>
+                </div>
             </div>
             <div class="mb-3"><label class="block text-xs font-bold text-gray-500">Nama Barang</label><input type="text" name="nama_barang" id="nama_barang" class="w-full border p-2 rounded" required></div>
             <div class="mb-3"><label class="block text-xs font-bold text-gray-500">Supplier</label><input list="list_supplier" name="nama_supplier" id="nama_supplier" class="w-full border p-2 rounded" placeholder="Auto Create"><datalist id="list_supplier"><?php $qs = mysqli_query($conn, "SELECT nama_supplier FROM supplier WHERE id_usaha = '$id_usaha_aktif' ORDER BY nama_supplier ASC"); while($s = mysqli_fetch_assoc($qs)) { echo "<option value='{$s['nama_supplier']}'>"; } ?></datalist></div>
