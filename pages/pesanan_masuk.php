@@ -151,6 +151,72 @@ if(isset($_POST['update_pesanan'])) {
         echo "<script>alert('Status Pesanan Diperbarui!'); window.location='index.php?page=pesanan_masuk';</script>";
     }
 }
+
+// ==========================================
+// 3. EXPORT EXCEL (mengikuti filter yang sedang aktif)
+// ==========================================
+if(isset($_POST['export_excel'])) {
+    while (ob_get_level()) { ob_end_clean(); }
+
+    $ex_cari  = mysqli_real_escape_string($conn, $_POST['filter_cari'] ?? '');
+    $ex_stat  = mysqli_real_escape_string($conn, $_POST['filter_status'] ?? '');
+    $ex_awal  = mysqli_real_escape_string($conn, $_POST['filter_tgl_awal'] ?? '');
+    $ex_akhir = mysqli_real_escape_string($conn, $_POST['filter_tgl_akhir'] ?? '');
+
+    $ex_where = "p.id_usaha = '$id_usaha'";
+    if ($ex_stat !== '')  { $ex_where .= " AND p.status = '$ex_stat'"; }
+    if ($ex_awal !== '')  { $ex_where .= " AND DATE(p.tanggal) >= '$ex_awal'"; }
+    if ($ex_akhir !== '') { $ex_where .= " AND DATE(p.tanggal) <= '$ex_akhir'"; }
+    if ($ex_cari !== '') {
+        $ex_where .= " AND (p.no_pesanan LIKE '%$ex_cari%' OR p.nama_pelanggan LIKE '%$ex_cari%' OR p.keterangan LIKE '%$ex_cari%' OR u.nama LIKE '%$ex_cari%')";
+    }
+
+    header("Content-Type: application/vnd.ms-excel; charset=utf-8");
+    header("Content-Disposition: attachment; filename=Rekap_Pesanan_Masuk_" . date('Y-m-d') . ".xls");
+    header("Pragma: no-cache");
+    header("Expires: 0");
+
+    echo '<table border="1">';
+    echo '<tr style="background-color: #4F46E5; color: white;">
+            <th>No</th>
+            <th>No. Pesanan</th>
+            <th>Tanggal</th>
+            <th>User Order / Dapur</th>
+            <th>Catatan</th>
+            <th>Item</th>
+            <th>Status</th>
+            <th>Driver</th>
+            <th>Nopol</th>
+            <th>Total Bayar</th>
+          </tr>';
+
+    $q_ex = mysqli_query($conn, "
+        SELECT p.*, u.nama as akun_pemesan
+        FROM pesanan p LEFT JOIN users u ON p.user_id = u.id
+        WHERE $ex_where ORDER BY p.id DESC");
+
+    $no = 1;
+    while($row = mysqli_fetch_assoc($q_ex)) {
+        $det = mysqli_query($conn, "SELECT d.qty, b.nama_barang, b.satuan FROM pesanan_detail d JOIN barang b ON d.id_barang = b.id WHERE d.id_pesanan='{$row['id']}'");
+        $items = [];
+        while($d = mysqli_fetch_assoc($det)) { $items[] = $d['nama_barang'] . ' (' . (float)$d['qty'] . ' ' . $d['satuan'] . ')'; }
+
+        echo '<tr>';
+        echo '<td>' . $no++ . '</td>';
+        echo '<td>' . $row['no_pesanan'] . '</td>';
+        echo '<td>' . date('d/m/Y H:i', strtotime($row['tanggal'])) . '</td>';
+        echo '<td>' . $row['nama_pelanggan'] . '</td>';
+        echo '<td>' . $row['keterangan'] . '</td>';
+        echo '<td>' . implode('; ', $items) . '</td>';
+        echo '<td>' . $row['status'] . '</td>';
+        echo '<td>' . $row['nama_driver'] . '</td>';
+        echo '<td>' . $row['nopol'] . '</td>';
+        echo '<td>' . $row['total_bayar'] . '</td>';
+        echo '</tr>';
+    }
+    echo '</table>';
+    exit();
+}
 ?>
 
 <div class="bg-white p-6 rounded-lg shadow-sm">
@@ -163,8 +229,26 @@ if(isset($_POST['update_pesanan'])) {
         $sel_status .= '<option value="' . $st . '"' . ($pms === $st ? ' selected' : '') . '>' . $st . '</option>';
     }
     $sel_status .= '</select>';
-    echo render_filter('Cari no pesanan / dapur / catatan...', $sel_status);
+
+    $f_tgl_awal  = htmlspecialchars((string)($_GET['tgl_awal'] ?? ''), ENT_QUOTES, 'UTF-8');
+    $f_tgl_akhir = htmlspecialchars((string)($_GET['tgl_akhir'] ?? ''), ENT_QUOTES, 'UTF-8');
+    $extra_tgl   = '<input type="date" name="tgl_awal" value="' . $f_tgl_awal . '" class="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white" title="Tanggal Mulai">'
+                 . '<input type="date" name="tgl_akhir" value="' . $f_tgl_akhir . '" class="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white" title="Tanggal Akhir">';
+
+    echo render_filter('Cari no pesanan / dapur / catatan...', $sel_status . $extra_tgl);
     ?>
+
+    <div class="flex justify-end mb-4">
+        <form method="POST">
+            <input type="hidden" name="filter_cari" value="<?= htmlspecialchars(ambil_kata_kunci(), ENT_QUOTES, 'UTF-8') ?>">
+            <input type="hidden" name="filter_status" value="<?= htmlspecialchars($pms, ENT_QUOTES, 'UTF-8') ?>">
+            <input type="hidden" name="filter_tgl_awal" value="<?= $f_tgl_awal ?>">
+            <input type="hidden" name="filter_tgl_akhir" value="<?= $f_tgl_akhir ?>">
+            <button type="submit" name="export_excel" class="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-green-700 shadow">
+                <i class="fa-solid fa-file-excel mr-2"></i>Rekap / Download Excel
+            </button>
+        </form>
+    </div>
 
     <div class="overflow-x-auto">
         <table class="w-full text-sm text-left border table-fixed min-w-[1000px]">
@@ -183,6 +267,8 @@ if(isset($_POST['update_pesanan'])) {
                 // Paginasi & filter sisi server
                 $pm_cari  = ambil_kata_kunci();
                 $pm_stat  = trim((string) ($_GET['status'] ?? ''));
+                $pm_awal  = trim((string) ($_GET['tgl_awal'] ?? ''));
+                $pm_akhir = trim((string) ($_GET['tgl_akhir'] ?? ''));
                 $pm_hal   = ambil_halaman();
                 $pm_limit = ambil_per_halaman();
 
@@ -193,6 +279,16 @@ if(isset($_POST['update_pesanan'])) {
                 if ($pm_stat !== '') {
                     $pm_wt[] = 'p.status = ?';
                     $pm_pt[] = $pm_stat;
+                    $pm_tt  .= 's';
+                }
+                if ($pm_awal !== '') {
+                    $pm_wt[] = 'DATE(p.tanggal) >= ?';
+                    $pm_pt[] = $pm_awal;
+                    $pm_tt  .= 's';
+                }
+                if ($pm_akhir !== '') {
+                    $pm_wt[] = 'DATE(p.tanggal) <= ?';
+                    $pm_pt[] = $pm_akhir;
                     $pm_tt  .= 's';
                 }
 
