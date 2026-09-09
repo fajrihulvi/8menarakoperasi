@@ -121,6 +121,67 @@ if(isset($_POST['hapus_transaksi'])) {
         echo "<script>alert('AKSES DITOLAK: Hanya Admin yang boleh menghapus.');</script>";
     }
 }
+
+// =================================================================================
+// EXPORT EXCEL (mengikuti filter yang sedang aktif)
+// =================================================================================
+if(isset($_POST['export_excel'])) {
+    while (ob_get_level()) { ob_end_clean(); }
+
+    $ex_cari  = mysqli_real_escape_string($conn, $_POST['filter_cari'] ?? '');
+    $ex_stat  = mysqli_real_escape_string($conn, $_POST['filter_status_bayar'] ?? '');
+    $ex_awal  = mysqli_real_escape_string($conn, $_POST['filter_tgl_awal'] ?? '');
+    $ex_akhir = mysqli_real_escape_string($conn, $_POST['filter_tgl_akhir'] ?? '');
+
+    $ex_where = "t.jenis_transaksi = 'keluar' AND t.id_usaha = '$id_usaha'";
+    if ($ex_stat === 'lunas')  { $ex_where .= " AND LOWER(TRIM(COALESCE(t.status_bayar,'belum'))) = 'lunas'"; }
+    elseif ($ex_stat === 'belum') { $ex_where .= " AND LOWER(TRIM(COALESCE(t.status_bayar,'belum'))) <> 'lunas'"; }
+    if ($ex_awal !== '')  { $ex_where .= " AND DATE(t.tanggal) >= '$ex_awal'"; }
+    if ($ex_akhir !== '') { $ex_where .= " AND DATE(t.tanggal) <= '$ex_akhir'"; }
+    if ($ex_cari !== '') {
+        $ex_where .= " AND (t.no_faktur LIKE '%$ex_cari%' OR t.nama_driver LIKE '%$ex_cari%' OR t.lokasi_kirim LIKE '%$ex_cari%')";
+    }
+
+    header("Content-Type: application/vnd.ms-excel; charset=utf-8");
+    header("Content-Disposition: attachment; filename=Rekap_Riwayat_Penjualan_" . date('Y-m-d') . ".xls");
+    header("Pragma: no-cache");
+    header("Expires: 0");
+
+    echo '<table border="1">';
+    echo '<tr style="background-color: #4F46E5; color: white;">
+            <th>No</th>
+            <th>No. Faktur</th>
+            <th>Tanggal</th>
+            <th>Kasir</th>
+            <th>Total Belanja</th>
+            <th>Status Order</th>
+            <th>Status Bayar</th>
+            <th>Driver</th>
+          </tr>';
+
+    $q_ex = mysqli_query($conn, "
+        SELECT t.*, u.nama_lengkap
+        FROM transaksi t LEFT JOIN users u ON t.user_id = u.id
+        WHERE $ex_where ORDER BY t.tanggal DESC");
+
+    $no = 1;
+    while($row = mysqli_fetch_assoc($q_ex)) {
+        $status_bayar_ex = strtolower(trim($row['status_bayar'] ?? 'belum')) === 'lunas' ? 'Lunas' : 'Belum Lunas';
+
+        echo '<tr>';
+        echo '<td>' . $no++ . '</td>';
+        echo '<td>' . $row['no_faktur'] . '</td>';
+        echo '<td>' . date('d/m/Y H:i', strtotime($row['tanggal'])) . '</td>';
+        echo '<td>' . ($row['nama_lengkap'] ?: 'Admin') . '</td>';
+        echo '<td>' . $row['total_transaksi'] . '</td>';
+        echo '<td>' . ucfirst($row['status']) . '</td>';
+        echo '<td>' . $status_bayar_ex . '</td>';
+        echo '<td>' . ($row['nama_driver'] ?: '-') . '</td>';
+        echo '</tr>';
+    }
+    echo '</table>';
+    exit();
+}
 ?>
 
 <div class="bg-white rounded-lg shadow-sm p-6">
@@ -137,8 +198,26 @@ if(isset($_POST['hapus_transaksi'])) {
         . '<option value="">-- Semua Status --</option>'
         . '<option value="lunas"' . ($rs==='lunas'?' selected':'') . '>Lunas</option>'
         . '<option value="belum"' . ($rs==='belum'?' selected':'') . '>Belum Lunas</option></select>';
-    echo render_filter('Cari no faktur / driver / lokasi...', $sel_bayar);
+
+    $f_tgl_awal  = htmlspecialchars((string)($_GET['tgl_awal'] ?? ''), ENT_QUOTES, 'UTF-8');
+    $f_tgl_akhir = htmlspecialchars((string)($_GET['tgl_akhir'] ?? ''), ENT_QUOTES, 'UTF-8');
+    $extra_tgl   = '<input type="date" name="tgl_awal" value="' . $f_tgl_awal . '" class="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white" title="Tanggal Mulai">'
+                 . '<input type="date" name="tgl_akhir" value="' . $f_tgl_akhir . '" class="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white" title="Tanggal Akhir">';
+
+    echo render_filter('Cari no faktur / driver / lokasi...', $sel_bayar . $extra_tgl);
     ?>
+
+    <div class="flex justify-end mb-4">
+        <form method="POST">
+            <input type="hidden" name="filter_cari" value="<?= htmlspecialchars(ambil_kata_kunci(), ENT_QUOTES, 'UTF-8') ?>">
+            <input type="hidden" name="filter_status_bayar" value="<?= htmlspecialchars($rs, ENT_QUOTES, 'UTF-8') ?>">
+            <input type="hidden" name="filter_tgl_awal" value="<?= $f_tgl_awal ?>">
+            <input type="hidden" name="filter_tgl_akhir" value="<?= $f_tgl_akhir ?>">
+            <button type="submit" name="export_excel" class="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-green-700 shadow">
+                <i class="fa-solid fa-file-excel mr-2"></i>Rekap / Download Excel
+            </button>
+        </form>
+    </div>
 
     <div class="overflow-x-auto">
         <table class="w-full text-sm text-left">
@@ -160,6 +239,8 @@ if(isset($_POST['hapus_transaksi'])) {
                 // ==========================================================
                 $r_cari  = ambil_kata_kunci();
                 $r_stat  = trim((string) ($_GET['status_bayar'] ?? ''));
+                $r_awal  = trim((string) ($_GET['tgl_awal'] ?? ''));
+                $r_akhir = trim((string) ($_GET['tgl_akhir'] ?? ''));
                 $r_hal   = ambil_halaman();
                 $r_limit = ambil_per_halaman();
 
@@ -171,6 +252,16 @@ if(isset($_POST['hapus_transaksi'])) {
                     $r_wt[] = "LOWER(TRIM(COALESCE(t.status_bayar,'belum'))) = 'lunas'";
                 } elseif ($r_stat === 'belum') {
                     $r_wt[] = "LOWER(TRIM(COALESCE(t.status_bayar,'belum'))) <> 'lunas'";
+                }
+                if ($r_awal !== '') {
+                    $r_wt[] = 'DATE(t.tanggal) >= ?';
+                    $r_pt[] = $r_awal;
+                    $r_tt  .= 's';
+                }
+                if ($r_akhir !== '') {
+                    $r_wt[] = 'DATE(t.tanggal) <= ?';
+                    $r_pt[] = $r_akhir;
+                    $r_tt  .= 's';
                 }
 
                 [$r_where, $r_params, $r_tipe] = bangun_filter(
