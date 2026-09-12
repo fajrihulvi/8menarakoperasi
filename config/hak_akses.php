@@ -79,7 +79,7 @@ $PETA_HALAMAN = [
     'riwayat_jual'         => ['accounting', 'viewer', 'invoice'],
     'edit_invoice'         => ['accounting', 'invoice'],
     'pos'                  => ['invoice'],
-    'data_retur'           => ['viewer'],
+    'data_retur'           => ['po', 'gudang', 'invoice', 'viewer'],
     'tracking_driver'      => ['viewer'],
     'penjualan'            => ['accounting', 'viewer'],
     'histori_transaksi'    => ['accounting', 'viewer'],
@@ -98,6 +98,7 @@ $PETA_HALAMAN = [
     'surat_jalan_saya'     => ['pelanggan', 'invoice'],
     'monitoring_armada'    => ['pelanggan', 'invoice'],
     'form_order'           => ['pelanggan', 'invoice'],
+    'retur_saya'           => ['pelanggan', 'invoice'],
 
     // --- Dapur ---
     'master_konversi'      => ['chef', 'ahli_gizi'],
