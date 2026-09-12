@@ -123,6 +123,47 @@ if(isset($_POST['hapus_transaksi'])) {
 }
 
 // =================================================================================
+// SIMPAN HARGA BELI REAL (HPP) PER ITEM
+// Hanya boleh diisi saat transaksi berstatus Selesai & Lunas, karena harga_beli
+// di master barang hanya proyeksi — harga beli riil saat itu bisa berbeda (fluktuatif).
+// =================================================================================
+if(isset($_POST['simpan_hpp_real'])) {
+    if(in_array($role, ['admin', 'accounting'])) {
+        $no_faktur_hpp = mysqli_real_escape_string($conn, $_POST['no_faktur_hpp']);
+
+        // Keamanan: pastikan transaksi ini benar-benar Selesai & Lunas sebelum menerima input
+        $cek_trx = mysqli_query($conn, "SELECT status, status_bayar FROM transaksi WHERE no_faktur='$no_faktur_hpp' AND id_usaha='$id_usaha'");
+        $trx_data = $cek_trx ? mysqli_fetch_assoc($cek_trx) : null;
+        $boleh_isi = $trx_data
+            && strtolower(trim($trx_data['status'])) === 'selesai'
+            && strtolower(trim($trx_data['status_bayar'] ?? 'belum')) === 'lunas';
+
+        if($boleh_isi) {
+            $hpp_items = $_POST['hpp_item'] ?? [];
+            foreach($hpp_items as $id_detail => $nilai_hpp) {
+                $id_detail = (int)$id_detail;
+                $nilai_hpp = (float)str_replace(',', '.', $nilai_hpp);
+                if($nilai_hpp < 0) continue;
+
+                $stmt = mysqli_prepare($conn, "UPDATE transaksi_detail SET hpp=? WHERE id=? AND no_faktur=?");
+                mysqli_stmt_bind_param($stmt, 'dis', $nilai_hpp, $id_detail, $no_faktur_hpp);
+                mysqli_stmt_execute($stmt);
+                mysqli_stmt_close($stmt);
+            }
+
+            if(function_exists('catat_log')) {
+                catat_log($conn, 'Input Harga Beli Real', "Update harga beli real (HPP) untuk faktur $no_faktur_hpp");
+            }
+            echo "<script>alert('Harga Beli Real berhasil disimpan!'); window.location='index.php?page=riwayat_jual';</script>";
+        } else {
+            echo "<script>alert('Harga Beli Real hanya bisa diisi jika status order SELESAI dan status bayar LUNAS.'); window.location='index.php?page=riwayat_jual';</script>";
+        }
+    } else {
+        echo "<script>alert('Akses ditolak! Hanya Admin/Accounting yang boleh mengisi Harga Beli Real.');</script>";
+    }
+}
+
+// =================================================================================
 // EXPORT EXCEL (mengikuti filter yang sedang aktif)
 // =================================================================================
 if(isset($_POST['export_excel'])) {
@@ -364,6 +405,12 @@ if(isset($_POST['export_excel'])) {
                             <i class="fa-solid fa-eye"></i>
                         </button>
 
+                        <?php if($status_order_lower == 'selesai' && $is_lunas && in_array($role, ['admin', 'accounting'])): ?>
+                            <button onclick="bukaHargaBeliReal('<?= $row['no_faktur'] ?>')" class="bg-teal-600 text-white px-3 py-1 rounded hover:bg-teal-700 text-xs flex items-center gap-1" title="Input Harga Beli Real (HPP)">
+                                <i class="fa-solid fa-coins"></i> HPP
+                            </button>
+                        <?php endif; ?>
+
                         <?php if($role == 'admin'): ?>
                         <form method="POST" onsubmit="return confirm('⚠️ PERINGATAN!!\n\nApakah Anda yakin ingin menghapus data ini?\n\nTindakan ini akan dicatat di Log Aktivitas Dashboard.');" style="display:inline;">
                             <input type="hidden" name="id_hapus" value="<?= $row['id'] ?>">
@@ -380,6 +427,28 @@ if(isset($_POST['export_excel'])) {
     </div>
 
     <?= render_paginasi($r_hal, $r_total, $r_limit) ?>
+</div>
+
+<div id="modalHargaBeliReal" class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden flex items-center justify-center z-50 transition-opacity">
+    <div class="bg-white rounded-lg w-full max-w-lg p-6 shadow-xl relative transform transition-all">
+        <button onclick="document.getElementById('modalHargaBeliReal').classList.add('hidden')" class="absolute top-4 right-4 text-gray-500 hover:text-red-500">
+            <i class="fa-solid fa-xmark text-xl"></i>
+        </button>
+        <h3 class="text-lg font-bold mb-1 flex items-center gap-2">
+            <i class="fa-solid fa-coins text-teal-600"></i> Input Harga Beli Real: <span id="hppFaktur" class="text-teal-600"></span>
+        </h3>
+        <p class="text-xs text-gray-500 mb-4">Harga beli di master barang hanya proyeksi. Isi harga beli sebenarnya saat transaksi ini terjadi (harga fluktuatif) untuk perhitungan laba yang akurat.</p>
+        <form id="formHargaBeliReal" method="POST">
+            <input type="hidden" name="no_faktur_hpp" id="hppFakturInput">
+            <div id="isiHargaBeliReal" class="overflow-y-auto max-h-80 border-t border-b py-2 mb-4">
+                <p class="text-center text-gray-500">Memuat data...</p>
+            </div>
+            <div class="text-right">
+                <button type="button" onclick="document.getElementById('modalHargaBeliReal').classList.add('hidden')" class="bg-gray-200 text-gray-700 px-4 py-2 rounded hover:bg-gray-300 text-sm font-bold mr-2">Batal</button>
+                <button type="submit" name="simpan_hpp_real" class="bg-teal-600 text-white px-4 py-2 rounded hover:bg-teal-700 text-sm font-bold">Simpan Harga Beli Real</button>
+            </div>
+        </form>
+    </div>
 </div>
 
 <div id="modalDetail" class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden flex items-center justify-center z-50 transition-opacity">
@@ -414,6 +483,22 @@ if(isset($_POST['export_excel'])) {
             document.getElementById('isiDetail').innerHTML = html;
         });
     }
+
+    function bukaHargaBeliReal(faktur) {
+        document.getElementById('modalHargaBeliReal').classList.remove('hidden');
+        document.getElementById('hppFaktur').innerText = faktur;
+        document.getElementById('hppFakturInput').value = faktur;
+
+        let formData = new FormData();
+        formData.append('get_detail_hpp', true);
+        formData.append('no_faktur', faktur);
+
+        fetch('index.php?page=riwayat_jual', { method: 'POST', body: formData })
+        .then(response => response.text())
+        .then(html => {
+            document.getElementById('isiHargaBeliReal').innerHTML = html;
+        });
+    }
 </script>
 
 <?php
@@ -438,6 +523,35 @@ if(isset($_POST['get_detail_transaksi'])) {
         echo '<td class="p-2 text-center text-gray-600">'.(float)$d['qty'].' '.$d['satuan'].'</td>';
         echo '<td class="p-2 text-right text-gray-600">'.number_format($d['harga_satuan']).'</td>';
         echo '<td class="p-2 text-right font-bold text-gray-800">'.number_format($d['subtotal']).'</td>';
+        echo '</tr>';
+    }
+    echo '</table>';
+    exit;
+}
+
+// =================================================================================
+// PHP HANDLER AJAX: FORM INPUT HARGA BELI REAL (HPP) PER ITEM
+// =================================================================================
+if(isset($_POST['get_detail_hpp'])) {
+    ob_clean();
+    $faktur = mysqli_real_escape_string($conn, $_POST['no_faktur']);
+
+    $q = mysqli_query($conn, "
+        SELECT td.id, td.qty, td.hpp, b.nama_barang, b.satuan
+        FROM transaksi_detail td
+        LEFT JOIN barang b ON td.barang_id = b.id
+        WHERE td.no_faktur='$faktur'
+    ");
+
+    echo '<table class="w-full text-sm border-collapse">';
+    echo '<tr class="bg-gray-50 font-bold text-gray-600 border-b"><td class="p-2">Nama Barang</td><td class="p-2 text-center">Qty</td><td class="p-2 text-right">Harga Beli Real (Rp)</td></tr>';
+
+    while($d = mysqli_fetch_assoc($q)) {
+        $hpp_saat_ini = (float)($d['hpp'] ?? 0);
+        echo '<tr class="border-b last:border-0">';
+        echo '<td class="p-2 text-gray-800">' . htmlspecialchars($d['nama_barang'], ENT_QUOTES, 'UTF-8') . '</td>';
+        echo '<td class="p-2 text-center text-gray-600">' . (float)$d['qty'] . ' ' . htmlspecialchars($d['satuan'], ENT_QUOTES, 'UTF-8') . '</td>';
+        echo '<td class="p-2 text-right"><input type="number" step="0.01" min="0" name="hpp_item[' . (int)$d['id'] . ']" value="' . ($hpp_saat_ini > 0 ? $hpp_saat_ini : '') . '" placeholder="0" class="w-full border p-2 rounded text-right"></td>';
         echo '</tr>';
     }
     echo '</table>';
