@@ -208,6 +208,58 @@ if(isset($_GET['terima'])) {
     echo "<script>window.location='index.php?page=po';</script>";
 }
 
+// ==========================================
+// EXPORT EXCEL (mengikuti filter yang sedang aktif)
+// ==========================================
+if(isset($_POST['export_excel'])) {
+    while (ob_get_level()) { ob_end_clean(); }
+
+    $ex_supplier = mysqli_real_escape_string($conn, $_POST['filter_supplier'] ?? '');
+    $ex_awal     = mysqli_real_escape_string($conn, $_POST['filter_tgl_awal'] ?? '');
+    $ex_akhir    = mysqli_real_escape_string($conn, $_POST['filter_tgl_akhir'] ?? '');
+
+    $ex_where = "t.jenis_transaksi='masuk' AND t.id_usaha='$id_usaha'";
+    if ($ex_supplier !== '') { $ex_where .= " AND t.supplier_id = '$ex_supplier'"; }
+    if ($ex_awal !== '')     { $ex_where .= " AND DATE(t.tanggal) >= '$ex_awal'"; }
+    if ($ex_akhir !== '')    { $ex_where .= " AND DATE(t.tanggal) <= '$ex_akhir'"; }
+
+    header("Content-Type: application/vnd.ms-excel; charset=utf-8");
+    header("Content-Disposition: attachment; filename=Rekap_Purchase_Order_" . date('Y-m-d') . ".xls");
+    header("Pragma: no-cache");
+    header("Expires: 0");
+
+    echo '<table border="1">';
+    echo '<tr style="background-color: #4F46E5; color: white;">
+            <th>No</th>
+            <th>No. PO</th>
+            <th>Tanggal</th>
+            <th>Supplier</th>
+            <th>Total</th>
+            <th>Status</th>
+            <th>Status Bayar</th>
+          </tr>';
+
+    $q_ex = mysqli_query($conn, "
+        SELECT t.*, s.nama_supplier
+        FROM transaksi t JOIN supplier s ON t.supplier_id = s.id
+        WHERE $ex_where ORDER BY t.id DESC");
+
+    $no = 1;
+    while($row = mysqli_fetch_assoc($q_ex)) {
+        echo '<tr>';
+        echo '<td>' . $no++ . '</td>';
+        echo '<td>' . $row['no_faktur'] . '</td>';
+        echo '<td>' . date('d/m/Y H:i', strtotime($row['tanggal'])) . '</td>';
+        echo '<td>' . $row['nama_supplier'] . '</td>';
+        echo '<td>' . $row['total_transaksi'] . '</td>';
+        echo '<td>' . ($row['status'] == 'selesai' ? 'Diterima' : 'Proses') . '</td>';
+        echo '<td>' . ucfirst($row['status_bayar']) . '</td>';
+        echo '</tr>';
+    }
+    echo '</table>';
+    exit();
+}
+
 if(isset($_GET['hapus_po'])) {
     if($_SESSION['role'] == 'po') { 
         $_SESSION['notif_pesan'] = 'Akses Ditolak! Hanya Manager.'; 
@@ -364,7 +416,46 @@ if(isset($_GET['hapus_po'])) {
         <?php endif; ?>
 
         <div class="bg-white p-6 rounded-lg shadow-sm border-t-4 border-gray-600">
-            <h3 class="font-bold text-gray-800 mb-4 border-b pb-2">Riwayat Purchase Order</h3>
+            <div class="flex flex-col md:flex-row justify-between md:items-center gap-3 mb-4 border-b pb-2">
+                <h3 class="font-bold text-gray-800">Riwayat Purchase Order</h3>
+            </div>
+
+            <?php
+            $po_supplier_filter = trim((string)($_GET['supplier_id'] ?? ''));
+            $po_tgl_awal  = htmlspecialchars((string)($_GET['tgl_awal'] ?? ''), ENT_QUOTES, 'UTF-8');
+            $po_tgl_akhir = htmlspecialchars((string)($_GET['tgl_akhir'] ?? ''), ENT_QUOTES, 'UTF-8');
+            ?>
+            <form method="GET" class="flex flex-wrap items-center gap-2 mb-4">
+                <input type="hidden" name="page" value="po">
+                <select name="supplier_id" class="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white">
+                    <option value="">-- Semua Supplier --</option>
+                    <?php
+                    $sup_opsi = mysqli_query($conn, "SELECT * FROM supplier WHERE id_usaha='$id_usaha' ORDER BY nama_supplier ASC");
+                    while($so = mysqli_fetch_assoc($sup_opsi)) {
+                        $sel = ($po_supplier_filter === (string)$so['id']) ? ' selected' : '';
+                        echo '<option value="' . $so['id'] . '"' . $sel . '>' . htmlspecialchars($so['nama_supplier'], ENT_QUOTES, 'UTF-8') . '</option>';
+                    }
+                    ?>
+                </select>
+                <input type="date" name="tgl_awal" value="<?= $po_tgl_awal ?>" class="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white" title="Tanggal Mulai">
+                <input type="date" name="tgl_akhir" value="<?= $po_tgl_akhir ?>" class="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white" title="Tanggal Akhir">
+                <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 transition">Filter</button>
+                <?php if ($po_supplier_filter !== '' || $po_tgl_awal !== '' || $po_tgl_akhir !== ''): ?>
+                    <a href="index.php?page=po" class="px-3 py-2 bg-slate-100 text-slate-600 rounded-lg text-sm hover:bg-slate-200 transition">Reset</a>
+                <?php endif; ?>
+            </form>
+
+            <div class="flex justify-end mb-4">
+                <form method="POST">
+                    <input type="hidden" name="filter_supplier" value="<?= htmlspecialchars($po_supplier_filter, ENT_QUOTES, 'UTF-8') ?>">
+                    <input type="hidden" name="filter_tgl_awal" value="<?= $po_tgl_awal ?>">
+                    <input type="hidden" name="filter_tgl_akhir" value="<?= $po_tgl_akhir ?>">
+                    <button type="submit" name="export_excel" class="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-green-700 shadow">
+                        <i class="fa-solid fa-file-excel mr-2"></i>Rekap / Download Excel
+                    </button>
+                </form>
+            </div>
+
             <div class="overflow-x-auto">
                 <table class="w-full text-sm text-left">
                     <thead class="bg-gray-100 uppercase text-gray-600 font-bold">
@@ -379,7 +470,21 @@ if(isset($_GET['hapus_po'])) {
                     </thead>
                     <tbody>
                         <?php
-                        $po = mysqli_query($conn, "SELECT t.*, s.nama_supplier FROM transaksi t JOIN supplier s ON t.supplier_id = s.id WHERE t.jenis_transaksi='masuk' AND t.id_usaha='$id_usaha' ORDER BY t.id DESC LIMIT 20");
+                        $po_where = "t.jenis_transaksi='masuk' AND t.id_usaha='$id_usaha'";
+                        if ($po_supplier_filter !== '') {
+                            $po_where .= " AND t.supplier_id = '" . mysqli_real_escape_string($conn, $po_supplier_filter) . "'";
+                        }
+                        if ($po_tgl_awal !== '') {
+                            $po_where .= " AND DATE(t.tanggal) >= '" . mysqli_real_escape_string($conn, $po_tgl_awal) . "'";
+                        }
+                        if ($po_tgl_akhir !== '') {
+                            $po_where .= " AND DATE(t.tanggal) <= '" . mysqli_real_escape_string($conn, $po_tgl_akhir) . "'";
+                        }
+
+                        $po = mysqli_query($conn, "SELECT t.*, s.nama_supplier FROM transaksi t JOIN supplier s ON t.supplier_id = s.id WHERE $po_where ORDER BY t.id DESC LIMIT 20");
+                        if (mysqli_num_rows($po) == 0): ?>
+                            <tr><td colspan="6" class="text-center py-10 text-slate-400">Tidak ada PO yang cocok.</td></tr>
+                        <?php endif;
                         while($r = mysqli_fetch_assoc($po)):
                         ?>
                         <tr class="hover:bg-gray-50 border-b">
