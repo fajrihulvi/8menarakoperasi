@@ -2,6 +2,7 @@
 wajib_akses('riwayat_pesanan');
 
 if (session_status() == PHP_SESSION_NONE) { session_start(); }
+require_once __DIR__ . '/../layout/tabel_helper.php';
 $user_id = $_SESSION['user_id'];
 
 // =========================================================
@@ -86,11 +87,75 @@ if (isset($_GET['terima_pesanan'])) {
         echo "<script>alert('Anda tidak memiliki akses untuk menyelesaikan pesanan ini.'); window.history.back();</script>";
     }
 }
+
+// =========================================================
+// 4. EXPORT EXCEL (mengikuti filter yang sedang aktif)
+// =========================================================
+if (isset($_POST['export_excel'])) {
+    while (ob_get_level()) { ob_end_clean(); }
+
+    $ex_awal  = mysqli_real_escape_string($conn, $_POST['filter_tgl_awal'] ?? '');
+    $ex_akhir = mysqli_real_escape_string($conn, $_POST['filter_tgl_akhir'] ?? '');
+
+    $ex_where = "user_id = '$user_id'";
+    if ($ex_awal !== '')  { $ex_where .= " AND DATE(tanggal) >= '$ex_awal'"; }
+    if ($ex_akhir !== '') { $ex_where .= " AND DATE(tanggal) <= '$ex_akhir'"; }
+
+    header("Content-Type: application/vnd.ms-excel; charset=utf-8");
+    header("Content-Disposition: attachment; filename=Riwayat_Pesanan_Saya_" . date('Y-m-d') . ".xls");
+    header("Pragma: no-cache");
+    header("Expires: 0");
+
+    echo '<table border="1">';
+    echo '<tr style="background-color: #4F46E5; color: white;">
+            <th>No</th>
+            <th>No. Pesanan</th>
+            <th>Tanggal</th>
+            <th>Periode Order</th>
+            <th>Status</th>
+            <th>Total</th>
+          </tr>';
+
+    $q_ex = mysqli_query($conn, "SELECT * FROM pesanan WHERE $ex_where ORDER BY id DESC");
+
+    $no = 1;
+    while ($row = mysqli_fetch_assoc($q_ex)) {
+        echo '<tr>';
+        echo '<td>' . $no++ . '</td>';
+        echo '<td>' . $row['no_pesanan'] . '</td>';
+        echo '<td>' . date('d/m/Y H:i', strtotime($row['tanggal'])) . '</td>';
+        echo '<td>' . ($row['keterangan'] ?? '-') . '</td>';
+        echo '<td>' . $row['status'] . '</td>';
+        echo '<td>' . $row['total_bayar'] . '</td>';
+        echo '</tr>';
+    }
+    echo '</table>';
+    exit();
+}
 ?>
 
 <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
     <h2 class="text-2xl font-bold text-slate-800 mb-6"><i class="fa-solid fa-clock-rotate-left mr-2 text-indigo-600"></i> Riwayat Pesanan Saya</h2>
-    
+
+    <?php
+    $f_tgl_awal  = htmlspecialchars((string)($_GET['tgl_awal'] ?? ''), ENT_QUOTES, 'UTF-8');
+    $f_tgl_akhir = htmlspecialchars((string)($_GET['tgl_akhir'] ?? ''), ENT_QUOTES, 'UTF-8');
+    $extra_tgl   = '<input type="date" name="tgl_awal" value="' . $f_tgl_awal . '" class="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white" title="Tanggal Mulai">'
+                 . '<input type="date" name="tgl_akhir" value="' . $f_tgl_akhir . '" class="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white" title="Tanggal Akhir">';
+
+    echo render_filter('Cari no pesanan / catatan...', $extra_tgl);
+    ?>
+
+    <div class="flex justify-end mb-4">
+        <form method="POST">
+            <input type="hidden" name="filter_tgl_awal" value="<?= $f_tgl_awal ?>">
+            <input type="hidden" name="filter_tgl_akhir" value="<?= $f_tgl_akhir ?>">
+            <button type="submit" name="export_excel" class="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-green-700 shadow">
+                <i class="fa-solid fa-file-excel mr-2"></i>Rekap / Download Excel
+            </button>
+        </form>
+    </div>
+
     <div class="overflow-x-auto">
         <table class="w-full text-sm text-left">
             <thead class="bg-slate-50 text-slate-600 uppercase text-xs font-bold border-b">
@@ -105,14 +170,48 @@ if (isset($_GET['terima_pesanan'])) {
             </thead>
             <tbody class="divide-y divide-slate-100">
                 <?php
-                // Jika user adalah Driver Gilang/Dzifki, mungkin mereka perlu melihat semua orderan (opsional), 
-                // tapi sesuai kode asli, ini riwayat per user_id. 
+                // Jika user adalah Driver Gilang/Dzifki, mungkin mereka perlu melihat semua orderan (opsional),
+                // tapi sesuai kode asli, ini riwayat per user_id.
                 // Fitur ini akan bekerja jika Driver login dan membuka halaman ini untuk pesanan mereka sendiri,
                 // ATAU jika Anda mengubah query ini untuk menampilkan semua pesanan bagi driver.
                 // Disini saya biarkan default (user_id) agar aman untuk pelanggan.
-                
-                $q = mysqli_query($conn, "SELECT * FROM pesanan WHERE user_id='$user_id' ORDER BY id DESC");
-                while($r = mysqli_fetch_assoc($q)):
+
+                $rp_cari  = ambil_kata_kunci();
+                $rp_awal  = trim((string) ($_GET['tgl_awal'] ?? ''));
+                $rp_akhir = trim((string) ($_GET['tgl_akhir'] ?? ''));
+                $rp_hal   = ambil_halaman();
+                $rp_limit = ambil_per_halaman();
+
+                $rp_wt = ['user_id = ?'];
+                $rp_pt = [$user_id];
+                $rp_tt = 'i';
+
+                if ($rp_awal !== '') {
+                    $rp_wt[] = 'DATE(tanggal) >= ?';
+                    $rp_pt[] = $rp_awal;
+                    $rp_tt  .= 's';
+                }
+                if ($rp_akhir !== '') {
+                    $rp_wt[] = 'DATE(tanggal) <= ?';
+                    $rp_pt[] = $rp_akhir;
+                    $rp_tt  .= 's';
+                }
+
+                [$rp_where, $rp_params, $rp_tipe] = bangun_filter(
+                    $rp_cari, ['no_pesanan', 'keterangan'],
+                    $rp_wt, $rp_pt, $rp_tt
+                );
+
+                $rp_total  = hitung_total($conn, 'pesanan', $rp_where, $rp_params, $rp_tipe);
+                $rp_hal    = batasi_halaman($rp_hal, $rp_total, $rp_limit);
+                $rp_offset = ($rp_hal - 1) * $rp_limit;
+
+                $rp_rows = ambil_data($conn, 'SELECT * FROM pesanan',
+                    $rp_where, $rp_params, $rp_tipe, 'ORDER BY id DESC', $rp_limit, $rp_offset);
+
+                if (!$rp_rows) { echo render_kosong(6, 'Tidak ada pesanan yang cocok.'); }
+
+                foreach ($rp_rows as $r):
                      $status_color = match($r['status']) {
                         'Pending' => 'bg-gray-100 text-gray-600',
                         'Persiapan' => 'bg-yellow-100 text-yellow-700',
@@ -147,10 +246,12 @@ if (isset($_GET['terima_pesanan'])) {
                         <?php endif; ?>
                     </td>
                 </tr>
-                <?php endwhile; ?>
+                <?php endforeach; ?>
             </tbody>
         </table>
     </div>
+
+    <?= render_paginasi($rp_hal, $rp_total, $rp_limit) ?>
 </div>
 
 <div id="modalDetail" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/50 backdrop-blur-sm">

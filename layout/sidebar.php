@@ -21,7 +21,7 @@ if(boleh_buka('approval')) {
 // PENDETEKSI FOLDER AKTIF (AUTO-OPEN)
 // ==========================================
 $menu_dapur     = ['master_konversi', 'panel_chef', 'panel_gizi', 'cek_gizi'];
-$menu_pelanggan = ['order_pelanggan', 'riwayat_pesanan', 'monitoring_armada'];
+$menu_pelanggan = ['order_pelanggan', 'riwayat_pesanan', 'surat_jalan_saya', 'monitoring_armada'];
 $menu_master    = ['barang', 'kategori', 'supplier', 'warehouse', 'pelanggan', 'user', 'audit_stok', 'histori_barang'];
 $menu_beli      = ['update_stok_mobile', 'approval', 'po', 'barang_masuk', 'rekap_pembelian', 'retur_pembelian', 'tambah_retur_pembelian'];
 $menu_jual      = ['pos', 'input_surat_jalan', 'riwayat_jual', 'list_surat_jalan', 'tracking_driver', 'pesanan_masuk', 'data_retur', 'edit_invoice', 'penjualan', 'histori_transaksi'];
@@ -193,7 +193,8 @@ $menu_driver    = ['driver_panel']; // Input SJ & List SJ driver numpang di menu
         <!-- 2. PORTAL PELANGGAN -->
         <?php folder_menu('pelanggan', 'Portal Pelanggan', 'fa-users', 'text-pink-500', kumpulkan([
             'order_pelanggan'   => 'Buat Pesanan Baru',
-            'riwayat_pesanan'   => 'Riwayat & Retur',
+            'riwayat_pesanan'   => 'Riwayat Pesanan Saya',
+            'surat_jalan_saya'  => 'Surat Jalan',
             'monitoring_armada' => 'Lacak Driver Saya',
         ]), $menu_pelanggan); ?>
 

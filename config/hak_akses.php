@@ -93,6 +93,7 @@ $PETA_HALAMAN = [
     // --- Portal Pelanggan ---
     'order_pelanggan'      => ['pelanggan', 'invoice'],
     'riwayat_pesanan'      => ['pelanggan', 'invoice', 'driver'],
+    'surat_jalan_saya'     => ['pelanggan', 'invoice'],
     'monitoring_armada'    => ['pelanggan', 'invoice'],
     'form_order'           => ['pelanggan', 'invoice'],
 

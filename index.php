@@ -164,15 +164,26 @@ $initial_last_id = $d_init['max_id'] ?? 0;
                     <button onclick="toggleChat()" class="w-9 h-9 rounded-full bg-white border border-slate-200 text-indigo-600 hover:bg-indigo-50 flex items-center justify-center transition shadow-sm md:hidden">
                         <i class="fa-solid fa-comments"></i>
                     </button>
-                    <div class="flex items-center gap-3 bg-white pl-4 pr-2 py-1.5 rounded-full border border-slate-200 shadow-sm cursor-pointer hover:shadow-md transition">
-                        <div class="text-right hidden md:block">
-                            <p class="text-xs font-bold text-slate-700 leading-none"><?= htmlspecialchars($_SESSION['nama'] ?? 'User', ENT_QUOTES, 'UTF-8') ?></p>
-                            <span class="text-[10px] text-indigo-500 font-bold uppercase tracking-wide bg-indigo-50 px-2 py-0.5 rounded-full mt-1 inline-block">
-                                <?= htmlspecialchars($_SESSION['role'] ?? 'Admin', ENT_QUOTES, 'UTF-8') ?>
-                            </span>
+                    <div class="relative" id="userMenuWrapper">
+                        <div onclick="toggleUserMenu()" class="flex items-center gap-3 bg-white pl-4 pr-2 py-1.5 rounded-full border border-slate-200 shadow-sm cursor-pointer hover:shadow-md transition">
+                            <div class="text-right hidden md:block">
+                                <p class="text-xs font-bold text-slate-700 leading-none"><?= htmlspecialchars($_SESSION['nama'] ?? 'User', ENT_QUOTES, 'UTF-8') ?></p>
+                                <span class="text-[10px] text-indigo-500 font-bold uppercase tracking-wide bg-indigo-50 px-2 py-0.5 rounded-full mt-1 inline-block">
+                                    <?= htmlspecialchars($_SESSION['role'] ?? 'Admin', ENT_QUOTES, 'UTF-8') ?>
+                                </span>
+                            </div>
+                            <div class="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center font-bold text-sm shadow-inner">
+                                <?= substr($_SESSION['nama'] ?? 'U', 0, 1) ?>
+                            </div>
                         </div>
-                        <div class="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center font-bold text-sm shadow-inner">
-                            <?= substr($_SESSION['nama'] ?? 'U', 0, 1) ?>
+
+                        <div id="userMenuDropdown" class="hidden absolute right-0 mt-2 w-52 bg-white rounded-xl shadow-lg border border-slate-200 py-2 z-50">
+                            <button onclick="bukaModalPassword()" class="w-full text-left px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 flex items-center gap-2 transition">
+                                <i class="fa-solid fa-key text-indigo-500 w-4"></i> Ganti Password
+                            </button>
+                            <a href="logout.php" class="w-full text-left px-4 py-2.5 text-sm font-semibold text-rose-500 hover:bg-rose-50 flex items-center gap-2 transition">
+                                <i class="fa-solid fa-right-from-bracket w-4"></i> Logout
+                            </a>
                         </div>
                     </div>
                 </div>
@@ -250,6 +261,35 @@ $initial_last_id = $d_init['max_id'] ?? 0;
         </div>
     </div>
 
+    <div id="modalGantiPassword" class="hidden fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full relative">
+            <button onclick="tutupModalPassword()" class="absolute top-4 right-4 text-slate-400 hover:text-red-500">
+                <i class="fa-solid fa-xmark text-xl"></i>
+            </button>
+            <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                <i class="fa-solid fa-key text-indigo-500"></i> Ganti Password
+            </h3>
+            <form id="formGantiPassword" onsubmit="return submitGantiPassword(event)">
+                <div class="mb-3">
+                    <label class="block text-xs font-bold text-slate-500 mb-1">Password Lama</label>
+                    <input type="password" name="password_lama" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                </div>
+                <div class="mb-3">
+                    <label class="block text-xs font-bold text-slate-500 mb-1">Password Baru</label>
+                    <input type="password" name="password_baru" required minlength="6" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-xs font-bold text-slate-500 mb-1">Konfirmasi Password Baru</label>
+                    <input type="password" name="konfirmasi_password" required minlength="6" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                </div>
+                <p id="pesanErrorPassword" class="text-xs text-rose-500 font-semibold mb-3 hidden"></p>
+                <button type="submit" id="btnSubmitPassword" class="w-full bg-indigo-600 text-white py-2.5 rounded-lg text-sm font-bold hover:bg-indigo-700 transition">
+                    Simpan Password Baru
+                </button>
+            </form>
+        </div>
+    </div>
+
     <div class="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3 pointer-events-none w-auto h-auto">
         
         <div id="teamChatContainer" class="chat-box chat-hide pointer-events-auto bg-white w-80 md:w-96 h-[500px] rounded-xl shadow-2xl border border-slate-200 flex-col overflow-hidden ring-1 ring-slate-900/5">
@@ -291,6 +331,67 @@ $initial_last_id = $d_init['max_id'] ?? 0;
 
     <script>
         if ('serviceWorker' in navigator) navigator.serviceWorker.register('service-worker.js');
+
+        // --- DROPDOWN MENU USER (GANTI PASSWORD & LOGOUT) ---
+        function toggleUserMenu() {
+            document.getElementById('userMenuDropdown').classList.toggle('hidden');
+        }
+        document.addEventListener('click', function(e) {
+            const wrapper = document.getElementById('userMenuWrapper');
+            const dropdown = document.getElementById('userMenuDropdown');
+            if (wrapper && !wrapper.contains(e.target)) dropdown.classList.add('hidden');
+        });
+
+        function bukaModalPassword() {
+            document.getElementById('userMenuDropdown').classList.add('hidden');
+            document.getElementById('formGantiPassword').reset();
+            document.getElementById('pesanErrorPassword').classList.add('hidden');
+            document.getElementById('modalGantiPassword').classList.remove('hidden');
+        }
+        function tutupModalPassword() {
+            document.getElementById('modalGantiPassword').classList.add('hidden');
+        }
+
+        function submitGantiPassword(e) {
+            e.preventDefault();
+            const form = e.target;
+            const errBox = document.getElementById('pesanErrorPassword');
+            const btn = document.getElementById('btnSubmitPassword');
+            errBox.classList.add('hidden');
+
+            const baru = form.password_baru.value;
+            const konfirmasi = form.konfirmasi_password.value;
+            if (baru !== konfirmasi) {
+                errBox.textContent = 'Konfirmasi password baru tidak cocok.';
+                errBox.classList.remove('hidden');
+                return false;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Menyimpan...';
+
+            const fd = new FormData(form);
+            fetch('ajax_ganti_password.php', { method: 'POST', body: fd })
+            .then(res => res.json())
+            .then(data => {
+                btn.disabled = false;
+                btn.innerHTML = 'Simpan Password Baru';
+                if (data.status === 'success') {
+                    alert('Password berhasil diubah!');
+                    tutupModalPassword();
+                } else {
+                    errBox.textContent = data.message || 'Gagal mengubah password.';
+                    errBox.classList.remove('hidden');
+                }
+            })
+            .catch(() => {
+                btn.disabled = false;
+                btn.innerHTML = 'Simpan Password Baru';
+                errBox.textContent = 'Terjadi kesalahan koneksi.';
+                errBox.classList.remove('hidden');
+            });
+            return false;
+        }
 
         // Variabel Global
         const chatBox = document.getElementById('teamChatContainer');
