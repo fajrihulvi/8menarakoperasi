@@ -70,6 +70,7 @@ $PETA_HALAMAN = [
     'rekap_pembelian'      => ['gudang', 'accounting', 'viewer'],
     'update_stok_mobile'   => [],           // admin saja
     'approval'             => [],           // admin saja
+    'stock_opname'         => ['gudang', 'viewer'], // admin otomatis akses semua halaman
 
     // --- Penjualan ---
     'pesanan_masuk'        => ['po', 'gudang', 'viewer'],
@@ -174,6 +175,13 @@ $PETA_AKSI = [
     'retur_pembelian' => [
         'tambah' => ['po'],
         'edit'   => ['po'],
+        'hapus'  => [],
+    ],
+
+    // Stock Opname: Gudang boleh ajukan, approve/reject khusus admin
+    'stock_opname' => [
+        'tambah' => ['gudang'],
+        'edit'   => [],
         'hapus'  => [],
     ],
 
