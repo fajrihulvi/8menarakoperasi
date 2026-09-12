@@ -10,7 +10,7 @@
 
     <div class="bg-white p-6 rounded-xl shadow-sm border-t-4 border-green-500">
         <h3 class="font-bold text-gray-700 mb-2">Laporan Penjualan</h3>
-        <p class="text-sm text-gray-500 mb-4">Rekap omzet penjualan per periode tanggal.</p>
+        <p class="text-sm text-gray-500 mb-4">Rekap omzet penjualan per periode tanggal. Tabel akan tampil dulu sebelum dicetak.</p>
         <form method="GET" action="laporan_cetak.php" target="_blank" class="flex gap-2">
             <input type="hidden" name="jenis" value="penjualan">
             <input type="date" name="tgl_awal" class="border rounded p-1 text-xs w-full" required>
