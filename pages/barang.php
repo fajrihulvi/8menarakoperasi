@@ -161,8 +161,8 @@ if(isset($_POST['export_barang'])) {
             <th>Harga Pangkalpinang</th>
             <th>Harga Bangka Tengah</th>
             <th>Harga Bangka Barat</th>
-            <th>Harga Beli (Modal)</th>
-            <th>Harga Jual (Umum)</th>
+            <th>Proyeksi Harga Beli (Modal)</th>
+            <th>Proyeksi Harga Jual (Umum)</th>
             <th>Harga HET</th>
             <th>Minimal Order</th>
             <th>Nominal</th>
@@ -424,8 +424,8 @@ if(isset($_GET['hapus'])) {
                     <th class="p-3 border text-right bg-blue-50 text-blue-800">Harga PANGKALPINANG</th>
                     <th class="p-3 border text-right bg-blue-50 text-blue-800">Harga BANGKA TENGAH</th>
                     <th class="p-3 border text-right bg-blue-50 text-blue-800">Harga BANGKA BARAT</th>
-                    <th class="p-3 border text-right text-red-600">Harga Beli</th>
-                    <th class="p-3 border text-right text-green-600">Harga Umum</th>
+                    <th class="p-3 border text-right text-red-600">Proyeksi Harga Beli</th>
+                    <th class="p-3 border text-right text-green-600">Proyeksi Harga Jual</th>
                     <th class="p-3 border text-right bg-yellow-50">Harga HET</th>
                     <th class="p-3 border text-center">Min. Order</th>
                     <th class="p-3 border text-right bg-indigo-50 text-indigo-800">Nominal (Aset)</th>
@@ -595,11 +595,11 @@ if(isset($_GET['hapus'])) {
             </div>
 
             <div class="grid grid-cols-2 gap-3 mb-3 bg-yellow-50 p-2 rounded border border-yellow-200">
-                <div><label class="block text-xs font-bold text-gray-700">Harga Beli</label><input type="number" step="any" name="harga_beli" id="harga_beli" class="w-full border p-2 rounded" required></div>
+                <div><label class="block text-xs font-bold text-gray-700">Proyeksi Harga Beli</label><input type="number" step="any" name="harga_beli" id="harga_beli" class="w-full border p-2 rounded" required></div>
                 <div><label class="block text-xs font-bold text-red-600">Harga Head (Max)</label><input type="number" step="any" name="harga_head" id="harga_head" class="w-full border p-2 rounded border-red-200"></div>
             </div>
             <div class="grid grid-cols-2 gap-3 mb-3">
-                <div><label class="block text-xs font-bold text-gray-500">Harga Jual</label><input type="number" step="any" name="harga_jual" id="harga_jual" class="w-full border p-2 rounded" required></div>
+                <div><label class="block text-xs font-bold text-gray-500">Proyeksi Harga Jual</label><input type="number" step="any" name="harga_jual" id="harga_jual" class="w-full border p-2 rounded" required></div>
                 <div>
                     <label class="block text-xs font-bold text-gray-500">Satuan</label>
                     <input list="list_satuan" type="text" name="satuan" id="satuan" class="w-full border p-2 rounded" placeholder="Pilih/Ketik">
