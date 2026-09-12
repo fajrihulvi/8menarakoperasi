@@ -62,51 +62,66 @@ $id_toko_target = ($_SESSION['role'] == 'invoice') ? 1 : $id_usaha_user;
 
 // --- PROSES SIMPAN ---
 if(isset($_POST['kirim_pesanan'])) {
-    $input_periode = mysqli_real_escape_string($conn, $_POST['catatan_periode'] ?? '');
     $input_order   = mysqli_real_escape_string($conn, $_POST['catatan_order'] ?? '');
-    $catatan_gabungan = "[PERIODE: $input_periode] [NOTE: $input_order]";
-    
-    $no_pesanan = "ORD-" . date('ymdHis');
-    $items = $_POST['id_barang'] ?? [];
-    $qtys  = $_POST['qty'] ?? [];
-    
-    if(count($items) > 0) {
-        $total_bayar = 0;
-        foreach($items as $key => $id_barang) {
-            if(empty($id_barang)) continue;
-            
-            $db = mysqli_fetch_assoc(mysqli_query($conn, "SELECT $jenis_harga_user, harga_jual FROM barang WHERE id='$id_barang'"));
-            
-            // KUNCIAN MUTLAK SINKRONISASI
-            $h_satuan = (isset($db[$jenis_harga_user]) && (float)$db[$jenis_harga_user] > 0) ? (float)$db[$jenis_harga_user] : (float)$db['harga_jual'];
-            $total_bayar += ($h_satuan * (float)$qtys[$key]);
+    $catatan_gabungan = $input_order !== '' ? "[NOTE: $input_order]" : '';
+
+    $items    = $_POST['id_barang'] ?? [];
+    $qtys     = $_POST['qty'] ?? [];
+    $tanggals = $_POST['tanggal_periode'] ?? [];
+
+    // Kelompokkan baris item berdasarkan tanggal periode yang sama,
+    // sehingga tiap tanggal berbeda menjadi 1 pesanan (no_pesanan) terpisah.
+    $grup_per_tanggal = [];
+    foreach($items as $key => $id_barang) {
+        if(empty($id_barang)) continue;
+        $tgl = trim((string)($tanggals[$key] ?? ''));
+        if(!preg_match('/^\d{4}-\d{2}-\d{2}$/', $tgl)) continue;
+        $grup_per_tanggal[$tgl][] = ['id_barang' => (int)$id_barang, 'qty' => (float)($qtys[$key] ?? 0)];
+    }
+
+    if(count($grup_per_tanggal) > 0) {
+        $urutan = 0;
+        $jumlah_pesanan_dibuat = 0;
+
+        foreach($grup_per_tanggal as $tgl_periode => $baris_item) {
+            $tgl_valid = mysqli_real_escape_string($conn, $tgl_periode);
+            $urutan++;
+            $no_pesanan = "ORD-" . date('ymdHis') . "-" . $urutan;
+
+            $total_bayar = 0;
+            foreach($baris_item as $it) {
+                $db = mysqli_fetch_assoc(mysqli_query($conn, "SELECT $jenis_harga_user, harga_jual FROM barang WHERE id='{$it['id_barang']}'"));
+                $h_satuan = (isset($db[$jenis_harga_user]) && (float)$db[$jenis_harga_user] > 0) ? (float)$db[$jenis_harga_user] : (float)$db['harga_jual'];
+                $total_bayar += ($h_satuan * $it['qty']);
+            }
+
+            $keterangan_pesanan = "[PERIODE: " . date('d/m/Y', strtotime($tgl_valid)) . "]" . ($catatan_gabungan !== '' ? " $catatan_gabungan" : '');
+            $keterangan_pesanan = mysqli_real_escape_string($conn, $keterangan_pesanan);
+
+            $q_header = "INSERT INTO pesanan (id_usaha, user_id, no_pesanan, nama_pelanggan, no_hp, alamat, total_bayar, status, keterangan, tanggal)
+                         VALUES ('$id_toko_target', '$user_id', '$no_pesanan', '$nama_pelanggan_default', '$hp_default', '$alamat_default', '$total_bayar', 'Pending', '$keterangan_pesanan', '$tgl_valid')";
+
+            if(mysqli_query($conn, $q_header)) {
+                $id_pesanan = mysqli_insert_id($conn);
+                foreach($baris_item as $it) {
+                    $db = mysqli_fetch_assoc(mysqli_query($conn, "SELECT $jenis_harga_user, harga_jual FROM barang WHERE id='{$it['id_barang']}'"));
+                    $h_fix = (isset($db[$jenis_harga_user]) && (float)$db[$jenis_harga_user] > 0) ? (float)$db[$jenis_harga_user] : (float)$db['harga_jual'];
+                    $subtotal = $h_fix * $it['qty'];
+
+                    mysqli_query($conn, "INSERT INTO pesanan_detail (id_pesanan, id_barang, qty, harga_satuan, subtotal)
+                                         VALUES ('$id_pesanan', '{$it['id_barang']}', '{$it['qty']}', '$h_fix', '$subtotal')");
+                }
+                $jumlah_pesanan_dibuat++;
+            }
         }
 
-        // INSERT MENGGUNAKAN DATA SINKRONISASI
-        $q_header = "INSERT INTO pesanan (id_usaha, user_id, no_pesanan, nama_pelanggan, no_hp, alamat, total_bayar, status, keterangan, tanggal) 
-                     VALUES ('$id_toko_target', '$user_id', '$no_pesanan', '$nama_pelanggan_default', '$hp_default', '$alamat_default', '$total_bayar', 'Pending', '$catatan_gabungan', NOW())";
-        
-        if(mysqli_query($conn, $q_header)) {
-            $id_pesanan = mysqli_insert_id($conn);
-            foreach($items as $key => $id_barang) {
-                if(empty($id_barang)) continue;
-                $qty = (float)$qtys[$key];
-                $db = mysqli_fetch_assoc(mysqli_query($conn, "SELECT $jenis_harga_user, harga_jual FROM barang WHERE id='$id_barang'"));
-                
-                // KUNCIAN MUTLAK DETAIL SINKRONISASI
-                $h_fix = (isset($db[$jenis_harga_user]) && (float)$db[$jenis_harga_user] > 0) ? (float)$db[$jenis_harga_user] : (float)$db['harga_jual'];
-                $subtotal = $h_fix * $qty;
-                
-                mysqli_query($conn, "INSERT INTO pesanan_detail (id_pesanan, id_barang, qty, harga_satuan, subtotal) 
-                                     VALUES ('$id_pesanan', '$id_barang', '$qty', '$h_fix', '$subtotal')");
-            }
-            echo "<script>alert('Berhasil! Order Terkirim.'); window.location='index.php?page=riwayat_pesanan';</script>";
+        if($jumlah_pesanan_dibuat > 0) {
+            echo "<script>alert('Berhasil! $jumlah_pesanan_dibuat pesanan terkirim (dikelompokkan per tanggal).'); window.location='index.php?page=riwayat_pesanan';</script>";
         } else {
-            $err = mysqli_error($conn);
-            echo "<script>alert('Gagal membuat pesanan! Error: $err');</script>";
+            echo "<script>alert('Gagal membuat pesanan! Silakan coba lagi.');</script>";
         }
     } else {
-        echo "<script>alert('Silakan pilih barang terlebih dahulu!');</script>";
+        echo "<script>alert('Silakan pilih barang dan tanggal periode terlebih dahulu!');</script>";
     }
 }
 ?>
@@ -137,25 +152,23 @@ if(isset($_POST['kirim_pesanan'])) {
     </div>
 
     <form method="POST">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-            <div class="bg-blue-50 p-4 rounded-xl border border-blue-100">
-                <label class="block text-xs font-bold text-blue-700 uppercase mb-2">Catatan Periode Order</label>
-                <input type="text" name="catatan_periode" placeholder="Contoh: Senin-Rabu, 10-12 Feb" class="w-full border p-3 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 outline-none" required>
-            </div>
-            
+        <div class="grid grid-cols-1 gap-4 mb-6">
             <div class="bg-orange-50 p-4 rounded-xl border border-orange-100">
                 <label class="block text-xs font-bold text-orange-700 uppercase mb-2">Catatan Orderan (Opsional)</label>
                 <input type="text" name="catatan_order" placeholder="Cth: Jangan diantar siang, minta nota, dll" class="w-full border p-3 rounded-lg shadow-sm focus:ring-2 focus:ring-orange-500 outline-none">
             </div>
         </div>
 
+        <p class="text-xs text-slate-500 mb-3"><i class="fa-solid fa-circle-info text-indigo-500 mr-1"></i> Setiap baris punya tanggal periode sendiri. Baris dengan tanggal berbeda akan otomatis dijadikan pesanan terpisah per hari.</p>
+
         <div class="overflow-x-auto mb-4 border rounded-xl">
             <table class="w-full text-sm text-left">
                 <thead class="bg-indigo-600 text-white uppercase text-xs">
                     <tr>
-                        <th class="p-3 w-4/12">Nama Barang</th>
+                        <th class="p-3 w-2/12">Tanggal Periode</th>
+                        <th class="p-3 w-3/12">Nama Barang</th>
                         <th class="p-3 w-2/12 text-center">Satuan</th>
-                        <th class="p-3 w-3/12 text-right">Harga (<?= $label_dapur ?>)</th>
+                        <th class="p-3 w-2/12 text-right">Harga (<?= $label_dapur ?>)</th>
                         <th class="p-3 w-2/12 text-center">Qty</th>
                         <th class="p-3 w-1/12 text-center"><i class="fa-solid fa-trash"></i></th>
                     </tr>
@@ -163,16 +176,19 @@ if(isset($_POST['kirim_pesanan'])) {
                 <tbody id="containerBarang">
                     <tr class="item-row border-b bg-white">
                         <td class="p-2">
+                            <input type="date" name="tanggal_periode[]" class="w-full border p-2 rounded text-center font-bold" required>
+                        </td>
+                        <td class="p-2">
                             <select name="id_barang[]" class="w-full barang-select" required>
                                 <option value="">-- Cari Barang --</option>
                                 <?php
                                 $sql = "SELECT id, nama_barang, satuan, harga_jual, harga_gabek, harga_kereta, harga_jebus FROM barang WHERE id_usaha='$id_toko_target' ORDER BY nama_barang ASC";
                                 $q = mysqli_query($conn, $sql);
                                 while($b = mysqli_fetch_assoc($q)) {
-                                    
+
                                     // KUNCIAN MUTLAK SINKRONISASI LAYAR
                                     $harga_final = (isset($b[$jenis_harga_user]) && (float)$b[$jenis_harga_user] > 0) ? (float)$b[$jenis_harga_user] : (float)$b['harga_jual'];
-                                    
+
                                     echo "<option value='{$b['id']}' data-satuan='{$b['satuan']}' data-harga='$harga_final'>{$b['nama_barang']}</option>";
                                 }
                                 ?>
@@ -213,10 +229,12 @@ function initSelect2(row) {
 
 function tambahBaris() {
     let originalRow = $('.item-row:first');
+    let tanggalTerakhir = $('.item-row:last').find('input[name="tanggal_periode[]"]').val();
     originalRow.find('.barang-select').select2('destroy');
     let newRow = originalRow.clone();
     initSelect2(originalRow);
-    newRow.find('input').val(""); 
+    newRow.find('input').val("");
+    newRow.find('input[name="tanggal_periode[]"]').val(tanggalTerakhir || "");
     newRow.find('input[type="number"]').val(1);
     newRow.find('.harga-input').val("0");
     $('#containerBarang').append(newRow);
