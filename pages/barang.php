@@ -152,6 +152,7 @@ if(isset($_POST['export_barang'])) {
     echo '<tr style="background-color: #4F46E5; color: white;">
             <th>No</th>
             <th>Kategori</th>
+            <th>Jenis Barang</th>
             <th>Nama Barang</th>
             <th>Kode Barang</th>
             <th>Satuan</th>
@@ -168,15 +169,16 @@ if(isset($_POST['export_barang'])) {
             <th>Nominal</th>
           </tr>';
     
-    $query = mysqli_query($conn, "SELECT b.*, s.nama_supplier FROM barang b LEFT JOIN supplier s ON b.supplier_id = s.id WHERE $where_sql ORDER BY b.id ASC");
-    
+    $query = mysqli_query($conn, "SELECT b.*, s.nama_supplier, jb.jenis_barang FROM barang b LEFT JOIN supplier s ON b.supplier_id = s.id LEFT JOIN jenis_barang jb ON b.jenis_barang_id = jb.id WHERE $where_sql ORDER BY b.id ASC");
+
     $no = 1;
     while($row = mysqli_fetch_assoc($query)) {
         $nominal_excel = (float)$row['stok'] * (float)$row['harga_beli'];
-        
+
         echo '<tr>';
         echo '<td>' . $no++ . '</td>';
         echo '<td>' . $row['kategori'] . '</td>';
+        echo '<td>' . ($row['jenis_barang'] ?? '-') . '</td>';
         echo '<td>' . $row['nama_barang'] . '</td>';
         echo '<td>' . $row['kode_barang'] . '</td>';
         echo '<td>' . $row['satuan'] . '</td>';
@@ -261,6 +263,7 @@ if(isset($_POST['simpan_barang'])) {
         $kode = $_POST['kode_barang'];
         $kat = $_POST['kategori'];
         $kategori_id = cekAtauBuatKategori($conn, $kat, $id_usaha_aktif);
+        $jenis_barang_id = !empty($_POST['jenis_barang_id']) ? (int)$_POST['jenis_barang_id'] : null;
         $nama_sup = $_POST['nama_supplier'];
         $satuan = $_POST['satuan'];
         
@@ -295,9 +298,9 @@ if(isset($_POST['simpan_barang'])) {
         if($_SESSION['role'] == 'po') {
             $data_aksi = [
                 'id_barang'   => $id_barang, 'kode_barang' => $kode, 'nama_barang' => $nama,
-                'kategori'    => $kat, 'kategori_id' => $kategori_id, 'supplier_id' => $supplier_id, 'satuan'      => $satuan,
+                'kategori'    => $kat, 'kategori_id' => $kategori_id, 'jenis_barang_id' => $jenis_barang_id, 'supplier_id' => $supplier_id, 'satuan'      => $satuan,
                 'harga_beli'  => $beli, 'harga_head'  => $head, 'harga_jual'  => $jual,
-                'harga_gabek' => $harga_gabek, 'harga_kereta'=> $harga_kereta, 'harga_jebus' => $harga_jebus, 'stok_baru'   => $stok, 
+                'harga_gabek' => $harga_gabek, 'harga_kereta'=> $harga_kereta, 'harga_jebus' => $harga_jebus, 'stok_baru'   => $stok,
                 'minimal_order' => $min_ord, 'min_stok' => $min_stok
             ];
             $json_data = json_encode($data_aksi);
@@ -327,11 +330,13 @@ if(isset($_POST['simpan_barang'])) {
                 }
                 
                 $kategori_id_sql = $kategori_id === null ? 'NULL' : "'$kategori_id'";
-                $query = "UPDATE barang SET kode_barang='$kode', nama_barang='$nama', kategori='$kat', kategori_id=$kategori_id_sql, supplier_id='$supplier_id', satuan='$satuan', harga_beli='$beli', harga_head='$head', harga_jual='$jual', harga_gabek='$harga_gabek', harga_kereta='$harga_kereta', harga_jebus='$harga_jebus', stok='$stok', minimal_order='$min_ord', min_stok='$min_stok' WHERE id='$id_barang' AND id_usaha='$id_usaha_aktif'";
+                $jenis_barang_id_sql = $jenis_barang_id === null ? 'NULL' : "'$jenis_barang_id'";
+                $query = "UPDATE barang SET kode_barang='$kode', nama_barang='$nama', kategori='$kat', kategori_id=$kategori_id_sql, jenis_barang_id=$jenis_barang_id_sql, supplier_id='$supplier_id', satuan='$satuan', harga_beli='$beli', harga_head='$head', harga_jual='$jual', harga_gabek='$harga_gabek', harga_kereta='$harga_kereta', harga_jebus='$harga_jebus', stok='$stok', minimal_order='$min_ord', min_stok='$min_stok' WHERE id='$id_barang' AND id_usaha='$id_usaha_aktif'";
                 catat_log($conn, "Edit Barang", "Update data barang: $nama");
             } else {
                 $kategori_id_sql = $kategori_id === null ? 'NULL' : "'$kategori_id'";
-                $query = "INSERT INTO barang (id_usaha, kode_barang, nama_barang, kategori, kategori_id, supplier_id, satuan, harga_beli, harga_head, harga_jual, harga_gabek, harga_kereta, harga_jebus, stok, minimal_order, min_stok) VALUES ('$id_usaha_aktif', '$kode', '$nama', '$kat', $kategori_id_sql, '$supplier_id', '$satuan', '$beli', '$head', '$jual', '$harga_gabek', '$harga_kereta', '$harga_jebus', '$stok', '$min_ord', '$min_stok')";
+                $jenis_barang_id_sql = $jenis_barang_id === null ? 'NULL' : "'$jenis_barang_id'";
+                $query = "INSERT INTO barang (id_usaha, kode_barang, nama_barang, kategori, kategori_id, jenis_barang_id, supplier_id, satuan, harga_beli, harga_head, harga_jual, harga_gabek, harga_kereta, harga_jebus, stok, minimal_order, min_stok) VALUES ('$id_usaha_aktif', '$kode', '$nama', '$kat', $kategori_id_sql, $jenis_barang_id_sql, '$supplier_id', '$satuan', '$beli', '$head', '$jual', '$harga_gabek', '$harga_kereta', '$harga_jebus', '$stok', '$min_ord', '$min_stok')";
                 catat_log($conn, "Tambah Barang", "Menambah barang baru: $nama");
             }
             if(mysqli_query($conn, $query)) { echo "<script>alert('Data Barang Berhasil Disimpan!'); window.location='index.php?page=barang';</script>"; }
@@ -416,6 +421,7 @@ if(isset($_GET['hapus'])) {
                 <tr>
                     <th class="p-3 border text-center w-24">Aksi / Edit</th>
                     <th class="p-3 border">Kategori</th>
+                    <th class="p-3 border">Jenis Barang</th>
                     <th class="p-3 border">Nama Barang</th>
                     <th class="p-3 border text-center">Satuan</th>
                     <th class="p-3 border text-center">Stock</th>
@@ -465,14 +471,15 @@ if(isset($_GET['hapus'])) {
                 $b_offset = ($b_hal - 1) * $b_limit;
 
                 $b_select = "
-                    SELECT b.*, s.nama_supplier,
+                    SELECT b.*, s.nama_supplier, jb.jenis_barang,
                     (SELECT COUNT(*) FROM approval_request ar
                      WHERE ar.tipe_aksi = 'update_stok'
                      AND ar.status = 'pending'
                      AND ar.data_json LIKE CONCAT('%\"id_barang\":\"', b.id, '\"%')
                     ) as is_pending
                     FROM barang b
-                    LEFT JOIN supplier s ON b.supplier_id = s.id";
+                    LEFT JOIN supplier s ON b.supplier_id = s.id
+                    LEFT JOIN jenis_barang jb ON b.jenis_barang_id = jb.id";
 
                 $b_rows = ambil_data($conn, $b_select, $b_where, $b_params, $b_tipe,
                                      'ORDER BY b.id DESC', $b_limit, $b_offset);
@@ -510,6 +517,16 @@ if(isset($_GET['hapus'])) {
 
                     <td class="p-3 border font-bold text-gray-600 barang-kategori">
                         <?= $r['kategori'] ?>
+                    </td>
+
+                    <td class="p-3 border text-center">
+                        <?php if(!empty($r['jenis_barang'])): ?>
+                            <span class="px-2 py-1 rounded text-[10px] font-bold uppercase <?= strtolower($r['jenis_barang']) === 'sppg' ? 'bg-purple-100 text-purple-700' : 'bg-orange-100 text-orange-700' ?>">
+                                <?= htmlspecialchars($r['jenis_barang'], ENT_QUOTES, 'UTF-8') ?>
+                            </span>
+                        <?php else: ?>
+                            <span class="text-gray-300 text-xs">-</span>
+                        <?php endif; ?>
                     </td>
                     
                     <td class="p-3 border">
@@ -584,6 +601,18 @@ if(isset($_GET['hapus'])) {
                         ?>
                     </select>
                 </div>
+            </div>
+            <div class="mb-3">
+                <label class="block text-xs font-bold text-gray-500">Jenis Barang</label>
+                <select name="jenis_barang_id" id="jenis_barang_id" class="w-full border p-2 rounded">
+                    <option value="">-- Pilih Jenis Barang --</option>
+                    <?php
+                    $qjb = mysqli_query($conn, "SELECT id, jenis_barang FROM jenis_barang ORDER BY jenis_barang ASC");
+                    while($jb = mysqli_fetch_assoc($qjb)) {
+                        echo '<option value="' . $jb['id'] . '">' . htmlspecialchars($jb['jenis_barang'], ENT_QUOTES, 'UTF-8') . '</option>';
+                    }
+                    ?>
+                </select>
             </div>
             <div class="mb-3"><label class="block text-xs font-bold text-gray-500">Nama Barang</label><input type="text" name="nama_barang" id="nama_barang" class="w-full border p-2 rounded" required></div>
             <div class="mb-3"><label class="block text-xs font-bold text-gray-500">Supplier</label><input list="list_supplier" name="nama_supplier" id="nama_supplier" class="w-full border p-2 rounded" placeholder="Auto Create"><datalist id="list_supplier"><?php $qs = mysqli_query($conn, "SELECT nama_supplier FROM supplier WHERE id_usaha = '$id_usaha_aktif' ORDER BY nama_supplier ASC"); while($s = mysqli_fetch_assoc($qs)) { echo "<option value='{$s['nama_supplier']}'>"; } ?></datalist></div>
@@ -679,6 +708,7 @@ function openModal() {
     document.getElementById('kode_barang').value = 'BRG' + Math.floor(Math.random()*10000);
     document.getElementById('nama_barang').value = '';
     document.getElementById('nama_supplier').value = '';
+    document.getElementById('jenis_barang_id').value = '';
     document.getElementById('harga_beli').value = '';
     document.getElementById('harga_head').value = '';
     document.getElementById('harga_jual').value = '';
@@ -696,8 +726,9 @@ function editBarang(d) {
     document.getElementById('id_barang').value = d.id;
     document.getElementById('kode_barang').value = d.kode_barang;
     document.getElementById('nama_barang').value = d.nama_barang;
-    document.getElementById('nama_supplier').value = d.nama_supplier; 
+    document.getElementById('nama_supplier').value = d.nama_supplier;
     document.getElementById('kategori').value = d.kategori;
+    document.getElementById('jenis_barang_id').value = d.jenis_barang_id || '';
     document.getElementById('satuan').value = d.satuan;
     document.getElementById('harga_beli').value = d.harga_beli;
     document.getElementById('harga_head').value = d.harga_head;

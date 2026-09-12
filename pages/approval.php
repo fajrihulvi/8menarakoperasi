@@ -38,7 +38,9 @@ if(isset($_POST['aksi_respon'])) {
                 $id_brg = $data['id_barang'];
                 $stok   = $data['stok_baru'];
                 $harga  = $data['harga_baru'] ?? $data['harga_jual']; // Handle beda nama field
-                
+                $jb_id  = $data['jenis_barang_id'] ?? null;
+                $jb_id_sql = $jb_id === null ? 'NULL' : "'" . (int)$jb_id . "'";
+
                 // Simpan Riwayat Harga Dulu
                 $old = mysqli_fetch_assoc(mysqli_query($conn, "SELECT harga_beli, harga_jual FROM barang WHERE id='$id_brg'"));
                 if($old && $old['harga_jual'] != $harga) {
@@ -46,10 +48,10 @@ if(isset($_POST['aksi_respon'])) {
                 }
 
                 // Update Barang
-                $run = mysqli_query($conn, "UPDATE barang SET stok='$stok', harga_jual='$harga' WHERE id='$id_brg'");
+                $run = mysqli_query($conn, "UPDATE barang SET stok='$stok', harga_jual='$harga', jenis_barang_id=$jb_id_sql WHERE id='$id_brg'");
                 if($run) $berhasil = true;
             }
-            
+
             // 2. TAMBAH BARANG BARU
             elseif($tipe == 'tambah_barang') {
                 $kode = $data['kode_barang'];
@@ -60,8 +62,10 @@ if(isset($_POST['aksi_respon'])) {
                 $stok = $data['stok_baru']; $min = $data['minimal_order'];
                 $kat_id = $data['kategori_id'] ?? null;
                 $kat_id_sql = $kat_id === null ? 'NULL' : "'" . (int)$kat_id . "'";
+                $jb_id = $data['jenis_barang_id'] ?? null;
+                $jb_id_sql = $jb_id === null ? 'NULL' : "'" . (int)$jb_id . "'";
 
-                $run = mysqli_query($conn, "INSERT INTO barang (id_usaha, kode_barang, nama_barang, kategori, kategori_id, supplier_id, satuan, harga_beli, harga_head, harga_jual, stok, minimal_order) VALUES ('$id_usaha', '$kode', '$nama', '$kat', $kat_id_sql, '$sup', '$sat', '$hb', '$hh', '$hj', '$stok', '$min')");
+                $run = mysqli_query($conn, "INSERT INTO barang (id_usaha, kode_barang, nama_barang, kategori, kategori_id, jenis_barang_id, supplier_id, satuan, harga_beli, harga_head, harga_jual, stok, minimal_order) VALUES ('$id_usaha', '$kode', '$nama', '$kat', $kat_id_sql, $jb_id_sql, '$sup', '$sat', '$hb', '$hh', '$hj', '$stok', '$min')");
                 if($run) $berhasil = true;
             }
 
