@@ -41,17 +41,6 @@ if (!function_exists('format_rupiah')) {
     function format_rupiah($angka){ return "Rp " . number_format($angka,0,',','.'); }
 }
 
-// ==============================================================================
-// LOGIKA HITUNG SISA HARI LISENSI
-// ==============================================================================
-$sisa_hari = 0;
-if(defined('LISENSI_EXPIRED') && LISENSI_EXPIRED !== 'Tidak Diketahui' && LISENSI_EXPIRED !== 'Server API Gangguan') {
-    try {
-        $exp_date = new DateTime(LISENSI_EXPIRED);
-        $today = new DateTime(date('Y-m-d'));
-        if($exp_date > $today) { $sisa_hari = $today->diff($exp_date)->days; }
-    } catch (Exception $e) { $sisa_hari = 0; }
-}
 ?>
 
 <style>
@@ -261,47 +250,7 @@ if(defined('LISENSI_EXPIRED') && LISENSI_EXPIRED !== 'Tidak Diketahui' && LISENS
                 <p class="text-slate-700 font-medium">Ringkasan performa dan data real-time hari ini.</p>
             </div>
 
-            <div class="mb-6 animate-fade-in" style="animation-delay: 0.05s;">
-                <div class="bg-gradient-to-r from-slate-800 to-slate-900 rounded-3xl p-[2px] shadow-lg relative overflow-hidden group card-3d">
-                    <div class="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-purple-500/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                    
-                    <div class="bg-slate-900 rounded-[22px] p-5 relative z-10 flex flex-col md:flex-row items-center justify-between gap-4">
-                        
-                        <div class="flex items-center gap-4">
-                            <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white text-2xl shadow-[0_0_20px_rgba(16,185,129,0.4)]">
-                                <i class="fa-solid fa-shield-halved"></i>
-                            </div>
-                            <div>
-                                <h4 class="text-emerald-400 font-black text-sm uppercase tracking-wider mb-0.5">Lisensi Sistem Aktif</h4>
-                                <div class="flex items-center gap-2">
-                                    <span class="text-slate-300 text-xs">Terproteksi oleh</span>
-                                    <span class="text-white font-bold text-[10px] bg-slate-800 px-2 py-1 rounded border border-slate-700">IT SOLUTION</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="flex flex-col md:flex-row items-center gap-4 md:gap-8 bg-slate-800/80 px-6 py-3 rounded-2xl border border-slate-700/50 w-full md:w-auto">
-                            <div class="text-center md:text-left">
-                                <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Kode Lisensi</p>
-                                <p class="text-sm text-indigo-300 font-mono font-bold tracking-widest"><?= defined('LISENSI_KODE_SENSOR') ? LISENSI_KODE_SENSOR : '8MP-PRO-********' ?></p>
-                            </div>
-                            
-                            <div class="hidden md:block w-px h-10 bg-slate-700"></div> <div class="text-center md:text-left">
-                                <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Masa Berlaku s/d</p>
-                                <p class="text-sm text-white font-bold">
-                                    <?= defined('LISENSI_EXPIRED') && LISENSI_EXPIRED !== 'Tidak Diketahui' && LISENSI_EXPIRED !== 'Server API Gangguan' ? date('d M Y', strtotime(LISENSI_EXPIRED)) : '-' ?> 
-                                    <span class="ml-2 text-xs <?= $sisa_hari < 30 ? 'text-rose-400 animate-pulse' : 'text-emerald-400' ?> bg-slate-800 px-2 py-1 rounded-lg border border-slate-700">
-                                        <?= $sisa_hari ?> Hari Lagi
-                                    </span>
-                                </p>
-                            </div>
-                        </div>
-
-                    </div>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10"> 
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
                 
                 <div class="glass-panel p-6 rounded-3xl card-3d glow-effect group animate-fade-in" style="animation-delay: 0.1s;">
                     <div class="absolute -right-6 -top-6 w-24 h-24 bg-indigo-500/20 rounded-full blur-2xl group-hover:bg-indigo-500/40 transition-colors duration-500"></div>
