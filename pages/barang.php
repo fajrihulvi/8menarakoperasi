@@ -159,6 +159,7 @@ if(isset($_POST['export_barang'])) {
             <th>Stok</th>
             <th>Stok Minimal</th>
             <th>Supplier</th>
+            <th>Warehouse</th>
             <th>Harga Pangkalpinang</th>
             <th>Harga Bangka Tengah</th>
             <th>Harga Bangka Barat</th>
@@ -169,7 +170,7 @@ if(isset($_POST['export_barang'])) {
             <th>Nominal</th>
           </tr>';
     
-    $query = mysqli_query($conn, "SELECT b.*, s.nama_supplier, jb.jenis_barang FROM barang b LEFT JOIN supplier s ON b.supplier_id = s.id LEFT JOIN jenis_barang jb ON b.jenis_barang_id = jb.id WHERE $where_sql ORDER BY b.id ASC");
+    $query = mysqli_query($conn, "SELECT b.*, s.nama_supplier, jb.jenis_barang, w.nama_warehouse FROM barang b LEFT JOIN supplier s ON b.supplier_id = s.id LEFT JOIN jenis_barang jb ON b.jenis_barang_id = jb.id LEFT JOIN warehouse w ON b.warehouse_id = w.id WHERE $where_sql ORDER BY b.id ASC");
 
     $no = 1;
     while($row = mysqli_fetch_assoc($query)) {
@@ -185,6 +186,7 @@ if(isset($_POST['export_barang'])) {
         echo '<td>' . $row['stok'] . '</td>';
         echo '<td>' . $row['min_stok'] . '</td>';
         echo '<td>' . ($row['nama_supplier'] ?? '-') . '</td>';
+        echo '<td>' . ($row['nama_warehouse'] ?? '-') . '</td>';
         echo '<td>' . $row['harga_gabek'] . '</td>';
         echo '<td>' . $row['harga_kereta'] . '</td>';
         echo '<td>' . ($row['harga_jebus'] ?? 0) . '</td>';
@@ -264,7 +266,7 @@ if(isset($_POST['simpan_barang'])) {
         $kat = $_POST['kategori'];
         $kategori_id = cekAtauBuatKategori($conn, $kat, $id_usaha_aktif);
         $jenis_barang_id = !empty($_POST['jenis_barang_id']) ? (int)$_POST['jenis_barang_id'] : null;
-        $nama_sup = $_POST['nama_supplier'];
+        $warehouse_id = !empty($_POST['warehouse_id']) ? (int)$_POST['warehouse_id'] : null;
         $satuan = $_POST['satuan'];
         
         $beli = (float) preg_replace("/[^0-9.]/", "", str_replace(',', '.', $_POST['harga_beli'])); 
@@ -278,7 +280,7 @@ if(isset($_POST['simpan_barang'])) {
         $harga_kereta = (float) preg_replace("/[^0-9.]/", "", str_replace(',', '.', $_POST['harga_kereta']));
         $harga_jebus = (float) preg_replace("/[^0-9.]/", "", str_replace(',', '.', $_POST['harga_jebus']));
 
-        $supplier_id = cekAtauBuatSupplier($conn, $nama_sup, $id_usaha_aktif);
+        $supplier_id = !empty($_POST['supplier_id']) ? (int)$_POST['supplier_id'] : 0;
         $id_barang = $_POST['id_barang'];
 
         $nama_raw = mysqli_real_escape_string($conn, $_POST['nama_barang']);
@@ -298,7 +300,7 @@ if(isset($_POST['simpan_barang'])) {
         if($_SESSION['role'] == 'po') {
             $data_aksi = [
                 'id_barang'   => $id_barang, 'kode_barang' => $kode, 'nama_barang' => $nama,
-                'kategori'    => $kat, 'kategori_id' => $kategori_id, 'jenis_barang_id' => $jenis_barang_id, 'supplier_id' => $supplier_id, 'satuan'      => $satuan,
+                'kategori'    => $kat, 'kategori_id' => $kategori_id, 'jenis_barang_id' => $jenis_barang_id, 'supplier_id' => $supplier_id, 'warehouse_id' => $warehouse_id, 'satuan'      => $satuan,
                 'harga_beli'  => $beli, 'harga_head'  => $head, 'harga_jual'  => $jual,
                 'harga_gabek' => $harga_gabek, 'harga_kereta'=> $harga_kereta, 'harga_jebus' => $harga_jebus, 'stok_baru'   => $stok,
                 'minimal_order' => $min_ord, 'min_stok' => $min_stok
@@ -331,12 +333,14 @@ if(isset($_POST['simpan_barang'])) {
                 
                 $kategori_id_sql = $kategori_id === null ? 'NULL' : "'$kategori_id'";
                 $jenis_barang_id_sql = $jenis_barang_id === null ? 'NULL' : "'$jenis_barang_id'";
-                $query = "UPDATE barang SET kode_barang='$kode', nama_barang='$nama', kategori='$kat', kategori_id=$kategori_id_sql, jenis_barang_id=$jenis_barang_id_sql, supplier_id='$supplier_id', satuan='$satuan', harga_beli='$beli', harga_head='$head', harga_jual='$jual', harga_gabek='$harga_gabek', harga_kereta='$harga_kereta', harga_jebus='$harga_jebus', stok='$stok', minimal_order='$min_ord', min_stok='$min_stok' WHERE id='$id_barang' AND id_usaha='$id_usaha_aktif'";
+                $warehouse_id_sql = $warehouse_id === null ? 'NULL' : "'$warehouse_id'";
+                $query = "UPDATE barang SET kode_barang='$kode', nama_barang='$nama', kategori='$kat', kategori_id=$kategori_id_sql, jenis_barang_id=$jenis_barang_id_sql, supplier_id='$supplier_id', warehouse_id=$warehouse_id_sql, satuan='$satuan', harga_beli='$beli', harga_head='$head', harga_jual='$jual', harga_gabek='$harga_gabek', harga_kereta='$harga_kereta', harga_jebus='$harga_jebus', stok='$stok', minimal_order='$min_ord', min_stok='$min_stok' WHERE id='$id_barang' AND id_usaha='$id_usaha_aktif'";
                 catat_log($conn, "Edit Barang", "Update data barang: $nama");
             } else {
                 $kategori_id_sql = $kategori_id === null ? 'NULL' : "'$kategori_id'";
                 $jenis_barang_id_sql = $jenis_barang_id === null ? 'NULL' : "'$jenis_barang_id'";
-                $query = "INSERT INTO barang (id_usaha, kode_barang, nama_barang, kategori, kategori_id, jenis_barang_id, supplier_id, satuan, harga_beli, harga_head, harga_jual, harga_gabek, harga_kereta, harga_jebus, stok, minimal_order, min_stok) VALUES ('$id_usaha_aktif', '$kode', '$nama', '$kat', $kategori_id_sql, $jenis_barang_id_sql, '$supplier_id', '$satuan', '$beli', '$head', '$jual', '$harga_gabek', '$harga_kereta', '$harga_jebus', '$stok', '$min_ord', '$min_stok')";
+                $warehouse_id_sql = $warehouse_id === null ? 'NULL' : "'$warehouse_id'";
+                $query = "INSERT INTO barang (id_usaha, kode_barang, nama_barang, kategori, kategori_id, jenis_barang_id, supplier_id, warehouse_id, satuan, harga_beli, harga_head, harga_jual, harga_gabek, harga_kereta, harga_jebus, stok, minimal_order, min_stok) VALUES ('$id_usaha_aktif', '$kode', '$nama', '$kat', $kategori_id_sql, $jenis_barang_id_sql, '$supplier_id', $warehouse_id_sql, '$satuan', '$beli', '$head', '$jual', '$harga_gabek', '$harga_kereta', '$harga_jebus', '$stok', '$min_ord', '$min_stok')";
                 catat_log($conn, "Tambah Barang", "Menambah barang baru: $nama");
             }
             if(mysqli_query($conn, $query)) { echo "<script>alert('Data Barang Berhasil Disimpan!'); window.location='index.php?page=barang';</script>"; }
@@ -427,6 +431,7 @@ if(isset($_GET['hapus'])) {
                     <th class="p-3 border text-center">Stock</th>
                     <th class="p-3 border text-center">Stock Min.</th>
                     <th class="p-3 border">Supplier</th>
+                    <th class="p-3 border">Warehouse</th>
                     <th class="p-3 border text-right bg-blue-50 text-blue-800">Harga PANGKALPINANG</th>
                     <th class="p-3 border text-right bg-blue-50 text-blue-800">Harga BANGKA TENGAH</th>
                     <th class="p-3 border text-right bg-blue-50 text-blue-800">Harga BANGKA BARAT</th>
@@ -471,7 +476,7 @@ if(isset($_GET['hapus'])) {
                 $b_offset = ($b_hal - 1) * $b_limit;
 
                 $b_select = "
-                    SELECT b.*, s.nama_supplier, jb.jenis_barang,
+                    SELECT b.*, s.nama_supplier, jb.jenis_barang, w.nama_warehouse,
                     (SELECT COUNT(*) FROM approval_request ar
                      WHERE ar.tipe_aksi = 'update_stok'
                      AND ar.status = 'pending'
@@ -479,7 +484,8 @@ if(isset($_GET['hapus'])) {
                     ) as is_pending
                     FROM barang b
                     LEFT JOIN supplier s ON b.supplier_id = s.id
-                    LEFT JOIN jenis_barang jb ON b.jenis_barang_id = jb.id";
+                    LEFT JOIN jenis_barang jb ON b.jenis_barang_id = jb.id
+                    LEFT JOIN warehouse w ON b.warehouse_id = w.id";
 
                 $b_rows = ambil_data($conn, $b_select, $b_where, $b_params, $b_tipe,
                                      'ORDER BY b.id DESC', $b_limit, $b_offset);
@@ -544,6 +550,7 @@ if(isset($_GET['hapus'])) {
                     <td class="p-3 border text-center text-gray-500 font-bold"><?= $min_stok_val ?></td>
 
                     <td class="p-3 border text-indigo-600 font-medium"><?= $r['nama_supplier'] ?? '-' ?></td>
+                    <td class="p-3 border text-cyan-700 font-medium"><?= $r['nama_warehouse'] ?? '-' ?></td>
                     
                     <td class="p-3 border text-right bg-blue-50 font-bold text-blue-700"><?= number_format((float)$r['harga_gabek']) ?></td>
                     
@@ -615,8 +622,33 @@ if(isset($_GET['hapus'])) {
                 </select>
             </div>
             <div class="mb-3"><label class="block text-xs font-bold text-gray-500">Nama Barang</label><input type="text" name="nama_barang" id="nama_barang" class="w-full border p-2 rounded" required></div>
-            <div class="mb-3"><label class="block text-xs font-bold text-gray-500">Supplier</label><input list="list_supplier" name="nama_supplier" id="nama_supplier" class="w-full border p-2 rounded" placeholder="Auto Create"><datalist id="list_supplier"><?php $qs = mysqli_query($conn, "SELECT nama_supplier FROM supplier WHERE id_usaha = '$id_usaha_aktif' ORDER BY nama_supplier ASC"); while($s = mysqli_fetch_assoc($qs)) { echo "<option value='{$s['nama_supplier']}'>"; } ?></datalist></div>
-            
+            <div class="grid grid-cols-2 gap-4 mb-3">
+                <div>
+                    <label class="block text-xs font-bold text-gray-500">Supplier</label>
+                    <select name="supplier_id" id="supplier_id" class="w-full border p-2 rounded">
+                        <option value="">-- Pilih Supplier --</option>
+                        <?php
+                        $qs = mysqli_query($conn, "SELECT id, nama_supplier FROM supplier WHERE id_usaha = '$id_usaha_aktif' ORDER BY nama_supplier ASC");
+                        while($s = mysqli_fetch_assoc($qs)) {
+                            echo '<option value="' . $s['id'] . '">' . htmlspecialchars($s['nama_supplier'], ENT_QUOTES, 'UTF-8') . '</option>';
+                        }
+                        ?>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500">Warehouse</label>
+                    <select name="warehouse_id" id="warehouse_id" class="w-full border p-2 rounded">
+                        <option value="">-- Pilih Warehouse --</option>
+                        <?php
+                        $qw = mysqli_query($conn, "SELECT id, nama_warehouse FROM warehouse WHERE id_usaha = '$id_usaha_aktif' ORDER BY nama_warehouse ASC");
+                        while($w = mysqli_fetch_assoc($qw)) {
+                            echo '<option value="' . $w['id'] . '">' . htmlspecialchars($w['nama_warehouse'], ENT_QUOTES, 'UTF-8') . '</option>';
+                        }
+                        ?>
+                    </select>
+                </div>
+            </div>
+
             <div class="grid grid-cols-3 gap-2 mb-3 bg-blue-50 p-3 rounded-lg border border-blue-200">
                 <div><label class="block text-[9px] font-bold text-blue-700 uppercase mb-1">Harga PANGKALPINANG</label><input type="number" step="any" name="harga_gabek" id="harga_gabek" class="w-full border p-2 rounded font-bold text-blue-800" placeholder="0"></div>
                 <div><label class="block text-[9px] font-bold text-blue-700 uppercase mb-1">Harga BANGKA TENGAH</label><input type="number" step="any" name="harga_kereta" id="harga_kereta" class="w-full border p-2 rounded font-bold text-blue-800" placeholder="0"></div>
@@ -707,7 +739,8 @@ function openModal() {
     document.getElementById('id_barang').value = '';
     document.getElementById('kode_barang').value = 'BRG' + Math.floor(Math.random()*10000);
     document.getElementById('nama_barang').value = '';
-    document.getElementById('nama_supplier').value = '';
+    document.getElementById('supplier_id').value = '';
+    document.getElementById('warehouse_id').value = '';
     document.getElementById('jenis_barang_id').value = '';
     document.getElementById('harga_beli').value = '';
     document.getElementById('harga_head').value = '';
@@ -726,7 +759,8 @@ function editBarang(d) {
     document.getElementById('id_barang').value = d.id;
     document.getElementById('kode_barang').value = d.kode_barang;
     document.getElementById('nama_barang').value = d.nama_barang;
-    document.getElementById('nama_supplier').value = d.nama_supplier;
+    document.getElementById('supplier_id').value = d.supplier_id || '';
+    document.getElementById('warehouse_id').value = d.warehouse_id || '';
     document.getElementById('kategori').value = d.kategori;
     document.getElementById('jenis_barang_id').value = d.jenis_barang_id || '';
     document.getElementById('satuan').value = d.satuan;
