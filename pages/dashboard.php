@@ -290,11 +290,182 @@ if (!function_exists('format_rupiah')) {
 
             $q_tipis = mysqli_query($conn, "SELECT COUNT(*) as jlh FROM barang WHERE stok <= 5 AND id_usaha='$id_usaha'");
             $d_tipis = mysqli_fetch_assoc($q_tipis); $tipis = $d_tipis['jlh'] ?? 0;
+
+            // ==================================================================
+            // KPI PROFITABILITAS (SELURUH PERIODE)
+            // ------------------------------------------------------------------
+            // Basis data sama dengan halaman Laporan Laba Rugi: hanya transaksi
+            // penjualan yang sudah SELESAI dan LUNAS.
+            //
+            // Catatan HPP: sebagian baris transaksi_detail punya kolom `hpp`
+            // kosong/0 (data lama). Bila dibiarkan 0, laba kotor jadi terlihat
+            // jauh lebih besar dari kenyataan. Karena itu dipakai urutan:
+            //   1) td.hpp bila terisi,
+            //   2) harga_beli dari master barang sebagai perkiraan,
+            //   3) 0 bila keduanya tidak ada.
+            // ==================================================================
+            $kpi_omzet = 0.0; $kpi_hpp = 0.0; $kpi_baris = 0; $kpi_baris_estimasi = 0;
+
+            $sql_kpi = "
+                SELECT
+                    COALESCE(SUM(td.subtotal), 0) AS omzet,
+                    COALESCE(SUM(COALESCE(NULLIF(td.hpp, 0), b.harga_beli, 0) * td.qty), 0) AS hpp,
+                    COUNT(*) AS baris,
+                    COALESCE(SUM(CASE WHEN td.hpp IS NULL OR td.hpp = 0 THEN 1 ELSE 0 END), 0) AS baris_estimasi
+                FROM transaksi t
+                JOIN transaksi_detail td ON t.no_faktur = td.no_faktur
+                LEFT JOIN barang b ON td.barang_id = b.id
+                WHERE t.id_usaha = ?
+                  AND t.jenis_transaksi = 'keluar'
+                  AND t.status = 'selesai'
+                  AND t.status_bayar = 'lunas'";
+
+            $stmt_kpi = mysqli_prepare($conn, $sql_kpi);
+            if ($stmt_kpi) {
+                mysqli_stmt_bind_param($stmt_kpi, 'i', $id_usaha);
+                mysqli_stmt_execute($stmt_kpi);
+                $res_kpi = mysqli_stmt_get_result($stmt_kpi);
+                if ($res_kpi && ($row_kpi = mysqli_fetch_assoc($res_kpi))) {
+                    $kpi_omzet          = (float) $row_kpi['omzet'];
+                    $kpi_hpp            = (float) $row_kpi['hpp'];
+                    $kpi_baris          = (int)   $row_kpi['baris'];
+                    $kpi_baris_estimasi = (int)   $row_kpi['baris_estimasi'];
+                }
+                mysqli_stmt_close($stmt_kpi);
+            }
+
+            $kpi_laba   = $kpi_omzet - $kpi_hpp;
+            // Hindari pembagian nol bila belum ada penjualan sama sekali
+            $kpi_margin = ($kpi_omzet > 0) ? ($kpi_laba / $kpi_omzet) * 100 : 0.0;
+
+            // Ambang peringatan margin laba kotor (ubah di sini bila kebijakan berubah;
+            // teks & indikator di kartu ikut menyesuaikan otomatis).
+            $kpi_ambang = 20;
+            $kpi_sehat  = ($kpi_margin >= $kpi_ambang);
+            $kpi_persen_estimasi = ($kpi_baris > 0) ? ($kpi_baris_estimasi / $kpi_baris) * 100 : 0.0;
         ?>
 
             <div class="mb-4 mt-14 md:mt-0 animate-fade-in">
                 <h2 class="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-800 to-purple-600">Dashboard Utama</h2>
                 <p class="text-slate-700 font-medium">Ringkasan performa dan data real-time hari ini.</p>
+            </div>
+
+            <!-- ================= KPI PROFITABILITAS (KESELURUHAN) ================= -->
+            <div class="mb-4 animate-fade-in" style="animation-delay: 0.05s;">
+                <h3 class="text-lg font-extrabold text-slate-800 flex items-center gap-3">
+                    <span class="bg-violet-100 text-violet-600 p-2 rounded-lg"><i class="fa-solid fa-chart-pie"></i></span>
+                    Kinerja Profitabilitas
+                    <span class="text-[11px] font-bold text-slate-500 bg-white/70 border border-white px-3 py-1 rounded-full">Seluruh Periode</span>
+                </h3>
+                <p class="text-slate-600 text-sm font-medium mt-1 ml-1">
+                    Dihitung dari transaksi penjualan berstatus <b>Selesai</b> &amp; <b>Lunas</b>.
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-10">
+
+                <!-- 1. TOTAL MODAL BELANJA KELUAR / HPP -->
+                <div class="glass-panel p-6 rounded-3xl card-3d glow-effect group animate-fade-in relative overflow-hidden" style="animation-delay: 0.1s;">
+                    <div class="absolute -right-6 -top-6 w-24 h-24 bg-amber-500/20 rounded-full blur-2xl group-hover:bg-amber-500/40 transition-colors duration-500"></div>
+                    <div class="relative z-10">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="p-3 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl text-white shadow-lg shadow-amber-500/30 group-hover:scale-110 transition-transform duration-500">
+                                <i class="fa-solid fa-cart-flatbed text-xl icon-float"></i>
+                            </div>
+                            <span class="text-[10px] font-black uppercase tracking-wider text-amber-700 bg-amber-100 px-2.5 py-1 rounded-full">Modal</span>
+                        </div>
+                        <p class="text-xs font-extrabold text-slate-500 uppercase tracking-wider mb-1">Total Modal Belanja (HPP)</p>
+                        <h3 class="text-2xl font-black text-slate-800 tracking-tight break-words"><?= format_rupiah($kpi_hpp) ?></h3>
+                        <p class="text-[11px] font-semibold text-slate-500 mt-2">Harga pokok barang yang terjual</p>
+                    </div>
+                </div>
+
+                <!-- 2. TOTAL OMZET KESELURUHAN -->
+                <div class="glass-panel p-6 rounded-3xl card-3d glow-effect group animate-fade-in relative overflow-hidden" style="animation-delay: 0.15s;">
+                    <div class="absolute -right-6 -top-6 w-24 h-24 bg-blue-500/20 rounded-full blur-2xl group-hover:bg-blue-500/40 transition-colors duration-500"></div>
+                    <div class="relative z-10">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="p-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl text-white shadow-lg shadow-blue-500/30 group-hover:scale-110 transition-transform duration-500">
+                                <i class="fa-solid fa-sack-dollar text-xl icon-float"></i>
+                            </div>
+                            <span class="text-[10px] font-black uppercase tracking-wider text-blue-700 bg-blue-100 px-2.5 py-1 rounded-full">Omzet</span>
+                        </div>
+                        <p class="text-xs font-extrabold text-slate-500 uppercase tracking-wider mb-1">Total Omzet Keseluruhan</p>
+                        <h3 class="text-2xl font-black text-slate-800 tracking-tight break-words"><?= format_rupiah($kpi_omzet) ?></h3>
+                        <p class="text-[11px] font-semibold text-slate-500 mt-2">Dari <?= number_format($kpi_baris) ?> baris penjualan</p>
+                    </div>
+                </div>
+
+                <!-- 3. LABA KOTOR -->
+                <?php $laba_positif = ($kpi_laba >= 0); ?>
+                <div class="glass-panel p-6 rounded-3xl card-3d glow-effect group animate-fade-in relative overflow-hidden" style="animation-delay: 0.2s;">
+                    <div class="absolute -right-6 -top-6 w-24 h-24 <?= $laba_positif ? 'bg-emerald-500/20 group-hover:bg-emerald-500/40' : 'bg-rose-500/20 group-hover:bg-rose-500/40' ?> rounded-full blur-2xl transition-colors duration-500"></div>
+                    <div class="relative z-10">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="p-3 bg-gradient-to-br <?= $laba_positif ? 'from-emerald-400 to-teal-500 shadow-emerald-500/30' : 'from-rose-500 to-red-600 shadow-rose-500/30' ?> rounded-2xl text-white shadow-lg group-hover:scale-110 transition-transform duration-500">
+                                <i class="fa-solid <?= $laba_positif ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down' ?> text-xl icon-float"></i>
+                            </div>
+                            <span class="text-[10px] font-black uppercase tracking-wider <?= $laba_positif ? 'text-emerald-700 bg-emerald-100' : 'text-rose-700 bg-rose-100' ?> px-2.5 py-1 rounded-full">
+                                <?= $laba_positif ? 'Laba' : 'Rugi' ?>
+                            </span>
+                        </div>
+                        <p class="text-xs font-extrabold text-slate-500 uppercase tracking-wider mb-1">Laba Kotor</p>
+                        <h3 class="text-2xl font-black tracking-tight break-words <?= $laba_positif ? 'text-emerald-700' : 'text-rose-700' ?>"><?= format_rupiah($kpi_laba) ?></h3>
+                        <p class="text-[11px] font-semibold text-slate-500 mt-2">Omzet dikurangi modal belanja</p>
+                    </div>
+                </div>
+
+                <!-- 4. PERSENTASE LABA KOTOR (ALERT < 20% MERAH) -->
+                <div class="p-[2px] rounded-3xl animate-fade-in card-3d <?= $kpi_sehat ? 'bg-gradient-to-br from-emerald-400 to-teal-500 shadow-lg shadow-emerald-500/25' : 'bg-gradient-to-br from-rose-500 to-red-600 shadow-lg shadow-rose-500/30' ?>" style="animation-delay: 0.25s;">
+                    <div class="glass-panel h-full p-6 rounded-[22px] glow-effect group relative overflow-hidden" style="background: rgba(255,255,255,0.85) !important;">
+                        <div class="absolute -right-6 -top-6 w-24 h-24 <?= $kpi_sehat ? 'bg-emerald-500/25' : 'bg-rose-500/25' ?> rounded-full blur-2xl"></div>
+                        <div class="relative z-10">
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="p-3 bg-gradient-to-br <?= $kpi_sehat ? 'from-emerald-400 to-teal-500 shadow-emerald-500/30' : 'from-rose-500 to-red-600 shadow-rose-500/30' ?> rounded-2xl text-white shadow-lg group-hover:scale-110 transition-transform duration-500">
+                                    <i class="fa-solid <?= $kpi_sehat ? 'fa-shield-heart' : 'fa-triangle-exclamation' ?> text-xl icon-float"></i>
+                                </div>
+                                <span class="text-[10px] font-black uppercase tracking-wider <?= $kpi_sehat ? 'text-emerald-700 bg-emerald-100' : 'text-white bg-rose-600 animate-pulse' ?> px-2.5 py-1 rounded-full">
+                                    <?= $kpi_sehat ? 'Sehat' : 'Waspada' ?>
+                                </span>
+                            </div>
+                            <p class="text-xs font-extrabold text-slate-500 uppercase tracking-wider mb-1">Persentase Laba Kotor</p>
+                            <h3 class="text-3xl font-black tracking-tight <?= $kpi_sehat ? 'text-emerald-700' : 'text-rose-700' ?>">
+                                <?= number_format($kpi_margin, 2, ',', '.') ?><span class="text-xl">%</span>
+                            </h3>
+
+                            <!-- Bar indikator terhadap ambang 20% -->
+                            <div class="mt-3 h-2 w-full bg-slate-200/80 rounded-full overflow-hidden">
+                                <div class="h-full rounded-full <?= $kpi_sehat ? 'bg-gradient-to-r from-emerald-400 to-teal-500' : 'bg-gradient-to-r from-rose-500 to-red-600' ?>"
+                                     style="width: <?= max(0, min(100, $kpi_margin)) ?>%"></div>
+                            </div>
+                            <p class="text-[11px] font-bold mt-2 <?= $kpi_sehat ? 'text-emerald-700' : 'text-rose-700' ?>">
+                                <?= $kpi_sehat
+                                    ? 'Di atas ambang minimal ' . $kpi_ambang . '%'
+                                    : 'Di bawah ambang minimal ' . $kpi_ambang . '% — perlu ditinjau' ?>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <?php if ($kpi_baris_estimasi > 0): ?>
+            <!-- Catatan transparansi: sebagian HPP diperkirakan dari master barang -->
+            <div class="flex items-start gap-3 text-xs font-medium text-slate-600 bg-white/60 border border-white rounded-2xl px-4 py-3 mb-10 animate-fade-in" style="animation-delay: 0.3s;">
+                <i class="fa-solid fa-circle-info text-slate-400 mt-0.5"></i>
+                <span>
+                    <b><?= number_format($kpi_persen_estimasi, 1, ',', '.') ?>%</b>
+                    (<?= number_format($kpi_baris_estimasi) ?> dari <?= number_format($kpi_baris) ?> baris)
+                    data penjualan tidak menyimpan harga pokok saat transaksi, sehingga HPP-nya diperkirakan
+                    dari <b>harga beli</b> pada Master Barang. Angka laba kotor di atas bersifat perkiraan.
+                </span>
+            </div>
+            <?php endif; ?>
+
+            <div class="mb-4 animate-fade-in" style="animation-delay: 0.3s;">
+                <h3 class="text-lg font-extrabold text-slate-800 flex items-center gap-3">
+                    <span class="bg-sky-100 text-sky-600 p-2 rounded-lg"><i class="fa-solid fa-calendar-day"></i></span>
+                    Ringkasan Hari Ini
+                </h3>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
