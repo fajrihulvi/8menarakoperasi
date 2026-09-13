@@ -343,6 +343,189 @@ if (!function_exists('format_rupiah')) {
             $kpi_ambang = 20;
             $kpi_sehat  = ($kpi_margin >= $kpi_ambang);
             $kpi_persen_estimasi = ($kpi_baris > 0) ? ($kpi_baris_estimasi / $kpi_baris) * 100 : 0.0;
+
+            // ==================================================================
+            // DATA GRAFIK 1: TREN BULANAN (12 BULAN TERAKHIR)
+            // Basis & rumus HPP sama persis dengan KPI di atas agar angkanya
+            // konsisten: hpp transaksi bila ada, jika tidak pakai harga_beli.
+            // ==================================================================
+            $g_bulan = []; $g_omzet = []; $g_hpp = []; $g_laba = []; $g_margin = [];
+
+            $sql_tren = "
+                SELECT DATE_FORMAT(t.tanggal, '%Y-%m') AS bln,
+                       COALESCE(SUM(td.subtotal), 0) AS omzet,
+                       COALESCE(SUM(COALESCE(NULLIF(td.hpp, 0), b.harga_beli, 0) * td.qty), 0) AS hpp
+                FROM transaksi t
+                JOIN transaksi_detail td ON t.no_faktur = td.no_faktur
+                LEFT JOIN barang b ON td.barang_id = b.id
+                WHERE t.id_usaha = ?
+                  AND t.jenis_transaksi = 'keluar'
+                  AND t.status = 'selesai'
+                  AND t.status_bayar = 'lunas'
+                  AND t.tanggal >= DATE_SUB(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL 11 MONTH)
+                GROUP BY bln
+                ORDER BY bln ASC";
+
+            $stmt_tren = mysqli_prepare($conn, $sql_tren);
+            if ($stmt_tren) {
+                mysqli_stmt_bind_param($stmt_tren, 'i', $id_usaha);
+                mysqli_stmt_execute($stmt_tren);
+                $res_tren = mysqli_stmt_get_result($stmt_tren);
+                $nama_bulan = [1=>'Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+                while ($res_tren && ($rt = mysqli_fetch_assoc($res_tren))) {
+                    $om = (float) $rt['omzet'];
+                    $hp = (float) $rt['hpp'];
+                    $lb = $om - $hp;
+                    $pecah = explode('-', $rt['bln']);
+                    $g_bulan[]  = ($nama_bulan[(int) $pecah[1]] ?? $pecah[1]) . ' ' . substr($pecah[0], 2);
+                    // Dibulatkan agar JSON di halaman ringkas (rupiah tidak perlu desimal)
+                    $g_omzet[]  = (int) round($om);
+                    $g_hpp[]    = (int) round($hp);
+                    $g_laba[]   = (int) round($lb);
+                    $g_margin[] = $om > 0 ? number_format(($lb / $om) * 100, 2, '.', '') : '0';
+                }
+                mysqli_stmt_close($stmt_tren);
+            }
+
+            // ==================================================================
+            // DATA GRAFIK 2: MARGIN PER KATEGORI (10 kategori omzet terbesar)
+            // ==================================================================
+            $k_nama = []; $k_margin = []; $k_omzet = []; $k_laba = [];
+
+            $sql_kat = "
+                SELECT COALESCE(NULLIF(TRIM(b.kategori), ''), '(Tanpa Kategori)') AS kategori,
+                       COALESCE(SUM(td.subtotal), 0) AS omzet,
+                       COALESCE(SUM(COALESCE(NULLIF(td.hpp, 0), b.harga_beli, 0) * td.qty), 0) AS hpp
+                FROM transaksi t
+                JOIN transaksi_detail td ON t.no_faktur = td.no_faktur
+                JOIN barang b ON td.barang_id = b.id
+                WHERE t.id_usaha = ?
+                  AND t.jenis_transaksi = 'keluar'
+                  AND t.status = 'selesai'
+                  AND t.status_bayar = 'lunas'
+                GROUP BY kategori
+                HAVING omzet > 0
+                ORDER BY omzet DESC
+                LIMIT 10";
+
+            $stmt_kat = mysqli_prepare($conn, $sql_kat);
+            if ($stmt_kat) {
+                mysqli_stmt_bind_param($stmt_kat, 'i', $id_usaha);
+                mysqli_stmt_execute($stmt_kat);
+                $res_kat = mysqli_stmt_get_result($stmt_kat);
+                while ($res_kat && ($rk = mysqli_fetch_assoc($res_kat))) {
+                    $om = (float) $rk['omzet'];
+                    $lb = $om - (float) $rk['hpp'];
+                    $k_nama[]   = $rk['kategori'];
+                    $k_omzet[]  = (int) round($om);
+                    $k_laba[]   = (int) round($lb);
+                    $k_margin[] = $om > 0 ? number_format(($lb / $om) * 100, 2, '.', '') : '0';
+                }
+                mysqli_stmt_close($stmt_kat);
+            }
+
+            // ==================================================================
+            // DATA GRAFIK 3: KONTRIBUSI OMZET PER PELANGGAN
+            // Menampilkan 6 pelanggan terbesar, sisanya digabung "Lainnya"
+            // agar terlihat seberapa terkonsentrasi omzet pada sedikit pembeli.
+            // ==================================================================
+            $p_nama = []; $p_omzet = []; $p_persen = [];
+
+            $sql_pel = "
+                SELECT COALESCE(NULLIF(TRIM(p.nama_pelanggan), ''), '(Tanpa Nama)') AS nama,
+                       COALESCE(SUM(td.subtotal), 0) AS omzet
+                FROM transaksi t
+                JOIN transaksi_detail td ON t.no_faktur = td.no_faktur
+                LEFT JOIN pelanggan p ON t.pelanggan_id = p.id
+                WHERE t.id_usaha = ?
+                  AND t.jenis_transaksi = 'keluar'
+                  AND t.status = 'selesai'
+                  AND t.status_bayar = 'lunas'
+                GROUP BY t.pelanggan_id
+                HAVING omzet > 0
+                ORDER BY omzet DESC";
+
+            $stmt_pel = mysqli_prepare($conn, $sql_pel);
+            if ($stmt_pel) {
+                mysqli_stmt_bind_param($stmt_pel, 'i', $id_usaha);
+                mysqli_stmt_execute($stmt_pel);
+                $res_pel = mysqli_stmt_get_result($stmt_pel);
+                $semua_pel = [];
+                while ($res_pel && ($rp = mysqli_fetch_assoc($res_pel))) { $semua_pel[] = $rp; }
+                mysqli_stmt_close($stmt_pel);
+
+                $total_pel = 0.0;
+                foreach ($semua_pel as $rp) { $total_pel += (float) $rp['omzet']; }
+
+                $batas_tampil = 6;
+                foreach (array_slice($semua_pel, 0, $batas_tampil) as $rp) {
+                    $nilai = (float) $rp['omzet'];
+                    $p_nama[]   = $rp['nama'];
+                    $p_omzet[]  = (int) round($nilai);
+                    $p_persen[] = $total_pel > 0 ? number_format($nilai / $total_pel * 100, 1, '.', '') : '0';
+                }
+                // Gabungkan sisanya jadi satu irisan
+                $sisa_pel = array_slice($semua_pel, $batas_tampil);
+                if ($sisa_pel) {
+                    $nilai_sisa = 0.0;
+                    foreach ($sisa_pel as $rp) { $nilai_sisa += (float) $rp['omzet']; }
+                    $p_nama[]   = 'Lainnya (' . count($sisa_pel) . ')';
+                    $p_omzet[]  = (int) round($nilai_sisa);
+                    $p_persen[] = $total_pel > 0 ? number_format($nilai_sisa / $total_pel * 100, 1, '.', '') : '0';
+                }
+            }
+
+            // Konsentrasi 2 pelanggan teratas (indikator risiko ketergantungan)
+            $p_konsentrasi = 0.0;
+            if (count($p_persen) >= 2) {
+                $p_konsentrasi = (float) $p_persen[0] + (float) $p_persen[1];
+            } elseif (count($p_persen) === 1) {
+                $p_konsentrasi = (float) $p_persen[0];
+            }
+
+            // ==================================================================
+            // DATA GRAFIK 4: PIUTANG vs TERTAGIH PER BULAN
+            // Berbasis nilai nota (total_transaksi), bukan detail barang,
+            // karena yang dinilai adalah tagihan yang sudah/belum dibayar.
+            // ==================================================================
+            $r_bulan = []; $r_lunas = []; $r_belum = []; $r_nota = [];
+            $r_total_piutang = 0.0; $r_total_nota = 0;
+
+            $sql_piutang = "
+                SELECT DATE_FORMAT(t.tanggal, '%Y-%m') AS bln,
+                       COALESCE(SUM(CASE WHEN LOWER(COALESCE(t.status_bayar,'')) = 'lunas'
+                                         THEN t.total_transaksi ELSE 0 END), 0) AS lunas,
+                       COALESCE(SUM(CASE WHEN LOWER(COALESCE(t.status_bayar,'')) <> 'lunas'
+                                         THEN t.total_transaksi ELSE 0 END), 0) AS belum,
+                       COALESCE(SUM(CASE WHEN LOWER(COALESCE(t.status_bayar,'')) <> 'lunas'
+                                         THEN 1 ELSE 0 END), 0) AS n_belum
+                FROM transaksi t
+                WHERE t.id_usaha = ?
+                  AND t.jenis_transaksi = 'keluar'
+                  AND t.tanggal >= DATE_SUB(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL 11 MONTH)
+                GROUP BY bln
+                ORDER BY bln ASC";
+
+            $stmt_piutang = mysqli_prepare($conn, $sql_piutang);
+            if ($stmt_piutang) {
+                mysqli_stmt_bind_param($stmt_piutang, 'i', $id_usaha);
+                mysqli_stmt_execute($stmt_piutang);
+                $res_piutang = mysqli_stmt_get_result($stmt_piutang);
+                $nama_bulan2 = [1=>'Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+                while ($res_piutang && ($rr = mysqli_fetch_assoc($res_piutang))) {
+                    $pecah2 = explode('-', $rr['bln']);
+                    $r_bulan[] = ($nama_bulan2[(int) $pecah2[1]] ?? $pecah2[1]) . ' ' . substr($pecah2[0], 2);
+                    $r_lunas[] = (int) round((float) $rr['lunas']);
+                    $r_belum[] = (int) round((float) $rr['belum']);
+                    $r_nota[]  = (int) $rr['n_belum'];
+                    $r_total_piutang += (float) $rr['belum'];
+                    $r_total_nota    += (int) $rr['n_belum'];
+                }
+                mysqli_stmt_close($stmt_piutang);
+            }
+
+            $ada_grafik = (count($g_bulan) > 0 || count($k_nama) > 0
+                           || count($p_nama) > 0 || count($r_bulan) > 0);
         ?>
 
             <div class="mb-4 mt-14 md:mt-0 animate-fade-in">
@@ -460,6 +643,353 @@ if (!function_exists('format_rupiah')) {
                 </span>
             </div>
             <?php endif; ?>
+
+            <!-- ================= GRAFIK EVALUASI BULANAN ================= -->
+            <div class="mb-4 animate-fade-in" style="animation-delay: 0.32s;">
+                <h3 class="text-lg font-extrabold text-slate-800 flex items-center gap-3">
+                    <span class="bg-indigo-100 text-indigo-600 p-2 rounded-lg"><i class="fa-solid fa-chart-column"></i></span>
+                    Analisa Strategis
+                </h3>
+                <p class="text-slate-600 text-sm font-medium mt-1 ml-1">
+                    Bahan evaluasi bulanan: arah tren laba dan kategori mana yang menekan margin.
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 xl:grid-cols-5 gap-6 mb-10">
+
+                <!-- GRAFIK 1: TREN BULANAN -->
+                <div class="xl:col-span-3 glass-panel rounded-3xl p-6 card-3d animate-fade-in" style="animation-delay: 0.35s;">
+                    <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
+                        <h4 class="font-bold text-slate-800 flex items-center gap-2">
+                            <i class="fa-solid fa-arrow-trend-up text-indigo-500"></i> Tren Omzet, Modal &amp; Laba
+                        </h4>
+                        <span class="text-[10px] font-bold text-slate-500 bg-white/70 border border-white px-2.5 py-1 rounded-full">12 Bulan Terakhir</span>
+                    </div>
+                    <p class="text-[11px] font-medium text-slate-500 mb-4">Batang = nilai rupiah &nbsp;•&nbsp; Garis = margin laba kotor (%)</p>
+                    <?php if (count($g_bulan) > 0): ?>
+                        <div class="relative h-[320px]"><canvas id="grafikTren"></canvas></div>
+                    <?php else: ?>
+                        <div class="h-[320px] flex flex-col items-center justify-center text-slate-400">
+                            <i class="fa-regular fa-chart-bar text-4xl mb-3 opacity-40"></i>
+                            <span class="font-bold text-sm">Belum ada transaksi lunas untuk ditampilkan</span>
+                        </div>
+                    <?php endif; ?>
+                </div>
+
+                <!-- GRAFIK 2: MARGIN PER KATEGORI -->
+                <div class="xl:col-span-2 glass-panel rounded-3xl p-6 card-3d animate-fade-in" style="animation-delay: 0.4s;">
+                    <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
+                        <h4 class="font-bold text-slate-800 flex items-center gap-2">
+                            <i class="fa-solid fa-layer-group text-violet-500"></i> Margin per Kategori
+                        </h4>
+                        <span class="text-[10px] font-bold text-slate-500 bg-white/70 border border-white px-2.5 py-1 rounded-full">Top 10 Omzet</span>
+                    </div>
+                    <p class="text-[11px] font-medium text-slate-500 mb-4">
+                        Merah = di bawah ambang <?= (int) $kpi_ambang ?>% &nbsp;•&nbsp; Hijau = sehat
+                    </p>
+                    <?php if (count($k_nama) > 0): ?>
+                        <div class="relative h-[320px]"><canvas id="grafikKategori"></canvas></div>
+                    <?php else: ?>
+                        <div class="h-[320px] flex flex-col items-center justify-center text-slate-400">
+                            <i class="fa-regular fa-chart-bar text-4xl mb-3 opacity-40"></i>
+                            <span class="font-bold text-sm">Belum ada data kategori</span>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 xl:grid-cols-5 gap-6 mb-10">
+
+                <!-- GRAFIK 3: KONTRIBUSI OMZET PER PELANGGAN -->
+                <div class="xl:col-span-2 glass-panel rounded-3xl p-6 card-3d animate-fade-in" style="animation-delay: 0.45s;">
+                    <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
+                        <h4 class="font-bold text-slate-800 flex items-center gap-2">
+                            <i class="fa-solid fa-users text-pink-500"></i> Kontribusi Pelanggan
+                        </h4>
+                        <span class="text-[10px] font-bold text-slate-500 bg-white/70 border border-white px-2.5 py-1 rounded-full">Top 6</span>
+                    </div>
+                    <?php if (count($p_nama) > 0): ?>
+                        <p class="text-[11px] font-medium mb-3 <?= $p_konsentrasi >= 60 ? 'text-rose-600 font-bold' : 'text-slate-500' ?>">
+                            <?php if ($p_konsentrasi >= 60): ?>
+                                <i class="fa-solid fa-triangle-exclamation"></i>
+                                2 pelanggan teratas menguasai <b><?= number_format($p_konsentrasi, 1, ',', '.') ?>%</b> omzet — risiko ketergantungan tinggi.
+                            <?php else: ?>
+                                2 pelanggan teratas menyumbang <?= number_format($p_konsentrasi, 1, ',', '.') ?>% omzet.
+                            <?php endif; ?>
+                        </p>
+                        <div class="relative h-[300px]"><canvas id="grafikPelanggan"></canvas></div>
+                    <?php else: ?>
+                        <div class="h-[320px] flex flex-col items-center justify-center text-slate-400">
+                            <i class="fa-regular fa-chart-pie text-4xl mb-3 opacity-40"></i>
+                            <span class="font-bold text-sm">Belum ada data pelanggan</span>
+                        </div>
+                    <?php endif; ?>
+                </div>
+
+                <!-- GRAFIK 4: PIUTANG vs TERTAGIH -->
+                <div class="xl:col-span-3 glass-panel rounded-3xl p-6 card-3d animate-fade-in" style="animation-delay: 0.5s;">
+                    <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
+                        <h4 class="font-bold text-slate-800 flex items-center gap-2">
+                            <i class="fa-solid fa-file-invoice-dollar text-cyan-600"></i> Tertagih vs Piutang
+                        </h4>
+                        <span class="text-[10px] font-bold text-slate-500 bg-white/70 border border-white px-2.5 py-1 rounded-full">12 Bulan Terakhir</span>
+                    </div>
+                    <?php if (count($r_bulan) > 0): ?>
+                        <p class="text-[11px] font-medium mb-3 <?= $r_total_piutang > 0 ? 'text-rose-600 font-bold' : 'text-slate-500' ?>">
+                            <?php if ($r_total_piutang > 0): ?>
+                                <i class="fa-solid fa-triangle-exclamation"></i>
+                                Belum tertagih: <b><?= format_rupiah($r_total_piutang) ?></b> dari <?= number_format($r_total_nota) ?> nota.
+                            <?php else: ?>
+                                Seluruh tagihan sudah lunas.
+                            <?php endif; ?>
+                        </p>
+                        <div class="relative h-[300px]"><canvas id="grafikPiutang"></canvas></div>
+                    <?php else: ?>
+                        <div class="h-[320px] flex flex-col items-center justify-center text-slate-400">
+                            <i class="fa-regular fa-chart-bar text-4xl mb-3 opacity-40"></i>
+                            <span class="font-bold text-sm">Belum ada data tagihan</span>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+            <?php if ($ada_grafik): // Chart.js hanya dimuat bila memang ada data ?>
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+            <script>
+            (function () {
+                if (typeof Chart === 'undefined') { return; } // CDN gagal dimuat: lewati saja
+
+                const rupiahSingkat = function (v) {
+                    const a = Math.abs(v);
+                    if (a >= 1e9) return (v / 1e9).toFixed(1).replace('.', ',') + ' M';
+                    if (a >= 1e6) return (v / 1e6).toFixed(0) + ' jt';
+                    if (a >= 1e3) return (v / 1e3).toFixed(0) + ' rb';
+                    return v;
+                };
+                const rupiahPenuh = function (v) {
+                    return 'Rp ' + Number(v).toLocaleString('id-ID', { maximumFractionDigits: 0 });
+                };
+
+                Chart.defaults.font.family = "'Plus Jakarta Sans', system-ui, sans-serif";
+                Chart.defaults.color = '#475569';
+
+                // ---------- GRAFIK 1: TREN BULANAN ----------
+                const elTren = document.getElementById('grafikTren');
+                if (elTren) {
+                    new Chart(elTren, {
+                        data: {
+                            labels: <?= json_encode($g_bulan, JSON_UNESCAPED_UNICODE) ?>,
+                            datasets: [
+                                {
+                                    type: 'bar', label: 'Omzet',
+                                    data: <?= json_encode($g_omzet) ?>,
+                                    backgroundColor: 'rgba(59,130,246,0.75)',
+                                    borderRadius: 6, yAxisID: 'y', order: 2
+                                },
+                                {
+                                    type: 'bar', label: 'Modal (HPP)',
+                                    data: <?= json_encode($g_hpp) ?>,
+                                    backgroundColor: 'rgba(245,158,11,0.75)',
+                                    borderRadius: 6, yAxisID: 'y', order: 2
+                                },
+                                {
+                                    type: 'line', label: 'Margin (%)',
+                                    data: (<?= json_encode($g_margin) ?>).map(Number),
+                                    borderColor: '#059669', backgroundColor: '#059669',
+                                    borderWidth: 3, tension: 0.35, pointRadius: 4,
+                                    pointBackgroundColor: '#fff', pointBorderWidth: 2,
+                                    yAxisID: 'y1', order: 1
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true, maintainAspectRatio: false,
+                            interaction: { mode: 'index', intersect: false },
+                            plugins: {
+                                legend: { labels: { usePointStyle: true, boxWidth: 8, font: { weight: '700', size: 11 } } },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function (ctx) {
+                                            if (ctx.dataset.yAxisID === 'y1') {
+                                                return ' Margin: ' + Number(ctx.parsed.y).toFixed(2).replace('.', ',') + '%';
+                                            }
+                                            return ' ' + ctx.dataset.label + ': ' + rupiahPenuh(ctx.parsed.y);
+                                        },
+                                        afterBody: function (items) {
+                                            const i = items[0].dataIndex;
+                                            const laba = <?= json_encode($g_laba) ?>[i];
+                                            return 'Laba Kotor: ' + rupiahPenuh(laba);
+                                        }
+                                    }
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    position: 'left', beginAtZero: true,
+                                    grid: { color: 'rgba(148,163,184,0.18)' },
+                                    ticks: { callback: rupiahSingkat, font: { size: 10 } }
+                                },
+                                y1: {
+                                    position: 'right', grid: { drawOnChartArea: false },
+                                    ticks: { callback: v => v + '%', font: { size: 10 } }
+                                },
+                                x: { grid: { display: false }, ticks: { font: { weight: '700', size: 10 } } }
+                            }
+                        }
+                    });
+                }
+
+                // ---------- GRAFIK 2: MARGIN PER KATEGORI ----------
+                const elKat = document.getElementById('grafikKategori');
+                if (elKat) {
+                    const marginKat = (<?= json_encode($k_margin) ?>).map(Number);
+                    const omzetKat  = <?= json_encode($k_omzet) ?>;
+                    const labaKat   = <?= json_encode($k_laba) ?>;
+                    const ambang    = <?= (int) $kpi_ambang ?>;
+
+                    new Chart(elKat, {
+                        type: 'bar',
+                        data: {
+                            labels: <?= json_encode($k_nama, JSON_UNESCAPED_UNICODE) ?>,
+                            datasets: [{
+                                label: 'Margin (%)',
+                                data: marginKat,
+                                backgroundColor: marginKat.map(m => m < ambang ? 'rgba(225,29,72,0.8)' : 'rgba(16,185,129,0.8)'),
+                                borderRadius: 6, borderSkipped: false
+                            }]
+                        },
+                        options: {
+                            indexAxis: 'y',
+                            responsive: true, maintainAspectRatio: false,
+                            plugins: {
+                                legend: { display: false },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function (ctx) {
+                                            return ' Margin: ' + Number(ctx.parsed.x).toFixed(2).replace('.', ',') + '%';
+                                        },
+                                        afterBody: function (items) {
+                                            const i = items[0].dataIndex;
+                                            return ['Omzet: ' + rupiahPenuh(omzetKat[i]),
+                                                    'Laba : ' + rupiahPenuh(labaKat[i])];
+                                        }
+                                    }
+                                }
+                            },
+                            scales: {
+                                x: {
+                                    grid: { color: 'rgba(148,163,184,0.18)' },
+                                    ticks: { callback: v => v + '%', font: { size: 10 } }
+                                },
+                                y: { grid: { display: false }, ticks: { font: { weight: '700', size: 10 } } }
+                            }
+                        }
+                    });
+                }
+
+                // ---------- GRAFIK 3: KONTRIBUSI PELANGGAN ----------
+                const elPel = document.getElementById('grafikPelanggan');
+                if (elPel) {
+                    const persenPel = (<?= json_encode($p_persen) ?>).map(Number);
+                    const warnaPel = ['#4f46e5','#ec4899','#06b6d4','#f59e0b','#10b981','#8b5cf6','#94a3b8'];
+
+                    new Chart(elPel, {
+                        type: 'doughnut',
+                        data: {
+                            labels: <?= json_encode($p_nama, JSON_UNESCAPED_UNICODE) ?>,
+                            datasets: [{
+                                data: <?= json_encode($p_omzet) ?>,
+                                backgroundColor: warnaPel,
+                                borderColor: '#fff', borderWidth: 2, hoverOffset: 8
+                            }]
+                        },
+                        options: {
+                            responsive: true, maintainAspectRatio: false, cutout: '58%',
+                            plugins: {
+                                legend: {
+                                    position: 'bottom',
+                                    labels: {
+                                        usePointStyle: true, boxWidth: 8, padding: 10,
+                                        font: { size: 10, weight: '600' },
+                                        generateLabels: function (chart) {
+                                            const d = chart.data;
+                                            return d.labels.map(function (l, i) {
+                                                return {
+                                                    text: l + ' — ' + persenPel[i].toFixed(1).replace('.', ',') + '%',
+                                                    fillStyle: d.datasets[0].backgroundColor[i],
+                                                    strokeStyle: d.datasets[0].backgroundColor[i],
+                                                    index: i
+                                                };
+                                            });
+                                        }
+                                    }
+                                },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function (ctx) {
+                                            return ' ' + rupiahPenuh(ctx.parsed) +
+                                                   ' (' + persenPel[ctx.dataIndex].toFixed(1).replace('.', ',') + '%)';
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+
+                // ---------- GRAFIK 4: PIUTANG vs TERTAGIH ----------
+                const elPiutang = document.getElementById('grafikPiutang');
+                if (elPiutang) {
+                    const notaBelum = <?= json_encode($r_nota) ?>;
+
+                    new Chart(elPiutang, {
+                        type: 'bar',
+                        data: {
+                            labels: <?= json_encode($r_bulan, JSON_UNESCAPED_UNICODE) ?>,
+                            datasets: [
+                                {
+                                    label: 'Tertagih (Lunas)',
+                                    data: <?= json_encode($r_lunas) ?>,
+                                    backgroundColor: 'rgba(16,185,129,0.8)', borderRadius: 6
+                                },
+                                {
+                                    label: 'Belum Tertagih',
+                                    data: <?= json_encode($r_belum) ?>,
+                                    backgroundColor: 'rgba(225,29,72,0.8)', borderRadius: 6
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true, maintainAspectRatio: false,
+                            interaction: { mode: 'index', intersect: false },
+                            plugins: {
+                                legend: { labels: { usePointStyle: true, boxWidth: 8, font: { weight: '700', size: 11 } } },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function (ctx) {
+                                            return ' ' + ctx.dataset.label + ': ' + rupiahPenuh(ctx.parsed.y);
+                                        },
+                                        afterBody: function (items) {
+                                            const n = notaBelum[items[0].dataIndex];
+                                            return n > 0 ? n + ' nota belum lunas' : 'Semua nota lunas';
+                                        }
+                                    }
+                                }
+                            },
+                            scales: {
+                                x: { stacked: true, grid: { display: false }, ticks: { font: { weight: '700', size: 10 } } },
+                                y: {
+                                    stacked: true, beginAtZero: true,
+                                    grid: { color: 'rgba(148,163,184,0.18)' },
+                                    ticks: { callback: rupiahSingkat, font: { size: 10 } }
+                                }
+                            }
+                        }
+                    });
+                }
+            })();
+            </script>
+            <?php endif; // $ada_grafik: skrip hanya dimuat bila ada data ?>
 
             <div class="mb-4 animate-fade-in" style="animation-delay: 0.3s;">
                 <h3 class="text-lg font-extrabold text-slate-800 flex items-center gap-3">
