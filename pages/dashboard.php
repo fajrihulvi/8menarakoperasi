@@ -2,14 +2,8 @@
 // Pastikan session dimulai
 if (session_status() == PHP_SESSION_NONE) { session_start(); }
 
-// ==============================================================================
-// LOGIKA POPUP PENGUMUMAN (MUNCUL 1X SETELAH LOGIN)
-// ==============================================================================
-$tampilkan_popup_pengumuman = false;
-if (!isset($_SESSION['popup_pengumuman_dilihat'])) {
-    $tampilkan_popup_pengumuman = true;
-    $_SESSION['popup_pengumuman_dilihat'] = true; // Tandai sudah dilihat
-}
+// Catatan: blok "popup pengumuman" dihapus karena variabelnya tidak pernah
+// dipakai untuk menampilkan apa pun (fitur popup-nya sudah tidak ada).
 
 // --- AMBIL DATA USER ---
 $role     = $_SESSION['role'] ?? '';
@@ -20,12 +14,60 @@ $user_id  = $_SESSION['user_id'] ?? 0;
 // LOGIKA EKSEKUSI RESET STOK
 // ==============================================================================
 if (isset($_POST['reset_stok_semua'])) {
-    $reset_query = mysqli_query($conn, "UPDATE barang SET stok = 0 WHERE id_usaha = '$id_usaha'");
+
+    // GERBANG AKSES: tindakan ini menolkan SELURUH stok dan tidak bisa dibatalkan,
+    // jadi hanya admin yang boleh. Pengecekan ada di sisi server (bukan sekadar
+    // menyembunyikan tombol), supaya kiriman POST langsung pun tetap ditolak.
+    if (strtolower($role) !== 'admin') {
+        if (function_exists('catat_log')) {
+            catat_log($conn, "Akses Ditolak", "Percobaan reset stok oleh role '" . $role . "' (ditolak sistem).");
+        }
+        echo "<script>alert('Akses Ditolak! Hanya Administrator yang boleh mereset stok.'); window.location.href='index.php?page=dashboard';</script>";
+        exit;
+    }
+
+    // Simpan stok lama ke tabel cadangan agar masih bisa dipulihkan bila salah klik
+    @mysqli_query($conn, "CREATE TABLE IF NOT EXISTS backup_stok_reset (
+        id INT(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        id_usaha INT(11) NOT NULL,
+        barang_id INT(11) NOT NULL,
+        nama_barang VARCHAR(255) NULL,
+        stok_lama DOUBLE NOT NULL DEFAULT 0,
+        user_id INT(11) NULL,
+        nama_user VARCHAR(255) NULL,
+        waktu DATETIME NOT NULL,
+        KEY idx_usaha_waktu (id_usaha, waktu)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    $nama_pelaku = $_SESSION['nama'] ?? 'System';
+    $stmt_bk = mysqli_prepare($conn,
+        "INSERT INTO backup_stok_reset (id_usaha, barang_id, nama_barang, stok_lama, user_id, nama_user, waktu)
+         SELECT id_usaha, id, nama_barang, stok, ?, ?, NOW() FROM barang WHERE id_usaha = ?");
+    if ($stmt_bk) {
+        mysqli_stmt_bind_param($stmt_bk, 'isi', $user_id, $nama_pelaku, $id_usaha);
+        mysqli_stmt_execute($stmt_bk);
+        mysqli_stmt_close($stmt_bk);
+    }
+
+    $jumlah_direset = 0;
+    $stmt_reset = mysqli_prepare($conn, "UPDATE barang SET stok = 0 WHERE id_usaha = ?");
+    $reset_query = false;
+    if ($stmt_reset) {
+        mysqli_stmt_bind_param($stmt_reset, 'i', $id_usaha);
+        $reset_query = mysqli_stmt_execute($stmt_reset);
+        $jumlah_direset = mysqli_stmt_affected_rows($stmt_reset);
+        mysqli_stmt_close($stmt_reset);
+    }
+
     if ($reset_query) {
-        if(function_exists('catat_log')) { catat_log($conn, "Reset Stok", "Admin melakukan reset/pengosongan SEMUA stok barang."); }
-        echo "<script>alert('Berhasil! Semua stok barang telah di-reset menjadi 0.'); window.location.href='index.php?page=dashboard';</script>";
+        if(function_exists('catat_log')) {
+            catat_log($conn, "Reset Stok", "Reset SEMUA stok barang ($jumlah_direset item) oleh $nama_pelaku. Stok lama tersimpan di backup_stok_reset.");
+        }
+        echo "<script>alert('Berhasil! $jumlah_direset stok barang telah di-reset menjadi 0.\\nStok lama tersimpan sebagai cadangan.'); window.location.href='index.php?page=dashboard';</script>";
     } else {
-        echo "<script>alert('Gagal mereset stok: " . mysqli_error($conn) . "'); window.history.back();</script>";
+        // Jangan tampilkan pesan error database mentah ke layar pengguna
+        error_log('[8MP] Gagal reset stok: ' . mysqli_error($conn));
+        echo "<script>alert('Gagal mereset stok. Silakan hubungi administrator sistem.'); window.history.back();</script>";
     }
     exit;
 }
@@ -187,15 +229,20 @@ if (!function_exists('format_rupiah')) {
                                     $color = match($r['status']) { 'Pending'=>'bg-slate-200 text-slate-700','Persiapan'=>'bg-amber-200 text-amber-800','Pengiriman'=>'bg-blue-200 text-blue-800','Selesai'=>'bg-emerald-200 text-emerald-800', default=>'bg-rose-200 text-rose-800' };
                             ?>
                             <tr class="hover:bg-white/60 transition-colors duration-300">
-                                <td class="p-4 font-bold text-indigo-700 text-base"><?= $r['no_pesanan'] ?></td>
+                                <td class="p-4 font-bold text-indigo-700 text-base"><?= htmlspecialchars($r['no_pesanan'], ENT_QUOTES, 'UTF-8') ?></td>
                                 <td class="p-4 text-slate-600 font-medium"><?= date('d M Y, H:i', strtotime($r['tanggal'])) ?></td>
                                 <td class="p-4 text-center">
-                                    <span class="px-4 py-1.5 rounded-full text-xs uppercase font-extrabold shadow-sm <?= $color ?>"><?= $r['status'] ?></span>
+                                    <span class="px-4 py-1.5 rounded-full text-xs uppercase font-extrabold shadow-sm <?= $color ?>"><?= htmlspecialchars($r['status'], ENT_QUOTES, 'UTF-8') ?></span>
                                 </td>
                                 <td class="p-4 text-center">
-                                    <button onclick="lihatDetail(<?= $r['id'] ?>, '<?= $r['no_pesanan'] ?>')" class="w-10 h-10 rounded-full bg-white shadow-sm border border-slate-200 text-slate-400 hover:text-white hover:bg-indigo-500 hover:shadow-lg hover:-translate-y-1 transition-all flex items-center justify-center mx-auto">
+                                    <?php /* Diarahkan ke halaman Riwayat Pesanan yang sudah memiliki modal
+                                             detail lengkap. Sebelumnya memanggil lihatDetail() yang tidak
+                                             pernah didefinisikan di halaman ini, sehingga tombol tidak berfungsi. */ ?>
+                                    <a href="index.php?page=riwayat_pesanan&lihat=<?= (int) $r['id'] ?>"
+                                       title="Lihat detail pesanan <?= htmlspecialchars($r['no_pesanan'], ENT_QUOTES, 'UTF-8') ?>"
+                                       class="w-10 h-10 rounded-full bg-white shadow-sm border border-slate-200 text-slate-400 hover:text-white hover:bg-indigo-500 hover:shadow-lg hover:-translate-y-1 transition-all flex items-center justify-center mx-auto">
                                         <i class="fa-solid fa-eye"></i>
-                                    </button>
+                                    </a>
                                 </td>
                             </tr>
                             <?php endwhile; else: ?>
@@ -320,7 +367,8 @@ if (!function_exists('format_rupiah')) {
                         </div>
                     </a>
 
-                    <form method="POST" onsubmit="return confirm('⚠️ PERINGATAN BAHAYA!\n\nApakah Anda YAKIN ingin MERESET SEMUA STOK BARANG menjadi 0?\n\nTindakan ini tidak dapat dibatalkan!');" class="glass-panel p-5 rounded-2xl card-3d group border-l-4 border-l-red-500 cursor-pointer hover:bg-red-50/50 m-0">
+                    <?php if (strtolower($role) === 'admin'): // Reset stok khusus admin ?>
+                    <form method="POST" onsubmit="return confirm('⚠️ PERINGATAN BAHAYA!\n\nApakah Anda YAKIN ingin MERESET SEMUA STOK BARANG menjadi 0?\n\nStok lama akan dicadangkan, tetapi seluruh stok berjalan akan hilang!');" class="glass-panel p-5 rounded-2xl card-3d group border-l-4 border-l-red-500 cursor-pointer hover:bg-red-50/50 m-0">
                         <button type="submit" name="reset_stok_semua" class="w-full flex items-center gap-4 text-left bg-transparent border-0 p-0 cursor-pointer outline-none">
                             <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-red-100 to-red-200 text-red-600 flex items-center justify-center text-xl shadow-inner group-hover:-rotate-12 transition-transform duration-300">
                                 <i class="fa-solid fa-trash-arrow-up"></i>
@@ -331,6 +379,7 @@ if (!function_exists('format_rupiah')) {
                             </div>
                         </button>
                     </form>
+                    <?php endif; ?>
                 </div>
             </div>
 
@@ -373,7 +422,7 @@ if (!function_exists('format_rupiah')) {
                             <p>Sistem menemukan <b class="bg-red-200 px-1 rounded"><?= $jumlah_anomali ?> barang</b> dengan stok minus (di bawah 0). Ini adalah anomali yang harus segera diperiksa karena stok fisik tidak mungkin bernilai minus.</p>
                             <ul class="list-disc list-inside mt-3 font-mono text-xs bg-white/60 p-3 rounded-lg border border-red-100 w-full md:w-1/2">
                                 <?php while($anomali = mysqli_fetch_assoc($q_audit)): ?>
-                                    <li><?= $anomali['nama_barang'] ?> (Stok saat ini: <span class="font-bold text-red-600"><?= (float)$anomali['stok'] ?></span>)</li>
+                                    <li><?= htmlspecialchars($anomali['nama_barang'], ENT_QUOTES, 'UTF-8') ?> (Stok saat ini: <span class="font-bold text-red-600"><?= (float)$anomali['stok'] ?></span>)</li>
                                 <?php endwhile; ?>
                             </ul>
                         </div>
@@ -404,10 +453,10 @@ if (!function_exists('format_rupiah')) {
                                     while($r = mysqli_fetch_assoc($q_stok_tabel)):
                                 ?>
                                 <tr class="group border-b border-slate-200/50 last:border-0 hover:bg-white/60 transition-colors">
-                                    <td class="py-4 px-4"><div class="font-bold text-slate-700"><?= $r['nama_barang'] ?></div></td>
+                                    <td class="py-4 px-4"><div class="font-bold text-slate-700"><?= htmlspecialchars($r['nama_barang'], ENT_QUOTES, 'UTF-8') ?></div></td>
                                     <td class="py-4 px-4 text-right">
                                         <span class="bg-red-100 text-red-600 px-3 py-1.5 rounded-lg font-bold shadow-sm inline-block transform group-hover:scale-110 transition-transform">
-                                            <?= (float)$r['stok'] ?> <?= $r['satuan'] ?>
+                                            <?= (float)$r['stok'] ?> <?= htmlspecialchars($r['satuan'], ENT_QUOTES, 'UTF-8') ?>
                                         </span>
                                     </td>
                                 </tr>
@@ -443,13 +492,13 @@ if (!function_exists('format_rupiah')) {
                                 </div>
                                 <div class="flex-1 min-w-0">
                                     <div class="flex justify-between items-start mb-1.5">
-                                        <span class="text-sm font-extrabold text-slate-800 group-hover:text-indigo-600 transition-colors"><?= $log['nama_user'] ?></span>
+                                        <span class="text-sm font-extrabold text-slate-800 group-hover:text-indigo-600 transition-colors"><?= htmlspecialchars($log['nama_user'], ENT_QUOTES, 'UTF-8') ?></span>
                                         <span class="text-[10px] font-bold text-slate-500 bg-white shadow-sm border border-slate-100 px-2.5 py-1 rounded-full"><?= date('H:i', strtotime($log['tanggal'])) ?></span>
                                     </div>
                                     <div class="flex items-center gap-2 mb-1.5">
-                                        <span class="text-[10px] font-black uppercase tracking-wider <?= $bg_badge ?> px-2 py-0.5 rounded-md"><?= $log['aksi'] ?></span>
+                                        <span class="text-[10px] font-black uppercase tracking-wider <?= $bg_badge ?> px-2 py-0.5 rounded-md"><?= htmlspecialchars($log['aksi'], ENT_QUOTES, 'UTF-8') ?></span>
                                     </div>
-                                    <p class="text-xs font-medium text-slate-500 leading-relaxed truncate group-hover:whitespace-normal transition-all duration-300"><?= $log['detail'] ?></p>
+                                    <p class="text-xs font-medium text-slate-500 leading-relaxed truncate group-hover:whitespace-normal transition-all duration-300"><?= htmlspecialchars($log['detail'], ENT_QUOTES, 'UTF-8') ?></p>
                                 </div>
                             </div>
                         <?php endwhile; else: ?>

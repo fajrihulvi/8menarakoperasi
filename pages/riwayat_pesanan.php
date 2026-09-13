@@ -282,4 +282,31 @@ function lihatDetail(id, no) {
     .then(html => { container.innerHTML = html; })
     .catch(e => { container.innerHTML = 'Gagal memuat data.'; });
 }
+
+// Buka modal detail otomatis bila dibuka lewat link ?lihat=<id>
+// (dipakai tombol "mata" pada tabel Pesanan Terakhir di Dashboard).
+<?php
+$lihat_id = isset($_GET['lihat']) ? (int) $_GET['lihat'] : 0;
+if ($lihat_id > 0):
+    // Pastikan pesanan memang milik user ini sebelum detailnya dibuka
+    $uid_cek = (int) ($_SESSION['user_id'] ?? 0);
+    $no_lihat = '';
+    $stmt_lihat = mysqli_prepare($conn, "SELECT no_pesanan FROM pesanan WHERE id = ? AND user_id = ? LIMIT 1");
+    if ($stmt_lihat) {
+        mysqli_stmt_bind_param($stmt_lihat, 'ii', $lihat_id, $uid_cek);
+        mysqli_stmt_execute($stmt_lihat);
+        $res_lihat = mysqli_stmt_get_result($stmt_lihat);
+        $row_lihat = $res_lihat ? mysqli_fetch_assoc($res_lihat) : null;
+        mysqli_stmt_close($stmt_lihat);
+        $no_lihat = $row_lihat['no_pesanan'] ?? '';
+    }
+    if ($no_lihat !== ''):
+?>
+document.addEventListener('DOMContentLoaded', function () {
+    lihatDetail(<?= $lihat_id ?>, <?= json_encode($no_lihat, JSON_UNESCAPED_UNICODE) ?>);
+});
+<?php
+    endif;
+endif;
+?>
 </script>
