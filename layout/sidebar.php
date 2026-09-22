@@ -17,6 +17,13 @@ if(boleh_buka('approval')) {
     if($q_app) $cek_app = mysqli_num_rows($q_app);
 }
 
+// Hitung Retur dari pelanggan yang belum diproses admin (status masih "Menunggu")
+$cek_retur = 0;
+if(boleh_buka('data_retur')) {
+    $q_ret = mysqli_query($conn, "SELECT COUNT(*) AS n FROM retur WHERE status='Menunggu' AND id_usaha='$id_usaha_aktif'");
+    if($q_ret) { $cek_retur = (int) (mysqli_fetch_assoc($q_ret)['n'] ?? 0); }
+}
+
 // ==========================================
 // PENDETEKSI FOLDER AKTIF (AUTO-OPEN)
 // ==========================================
@@ -154,20 +161,29 @@ $menu_driver    = ['driver_panel']; // Input SJ & List SJ driver numpang di menu
         if (!function_exists('link_menu')):
 
         // Cetak satu link anak menu, hanya jika role berhak membukanya.
-        function link_menu($tujuan, $judul, $warna = '') {
+        function link_menu($tujuan, $judul, $warna = '', $lencana = '') {
             global $page;
             if (!boleh_buka($tujuan)) return '';
             $aktif = ($page == $tujuan) ? 'sub-active' : $warna;
-            return '<a href="index.php?page=' . $tujuan . '" class="sub-link ' . $aktif . '">' . $judul . '</a>';
+            // Lencana diletakkan di ujung kanan agar sejajar antar menu.
+            $kelas_tata = $lencana !== '' ? ' flex items-center justify-between' : '';
+            return '<a href="index.php?page=' . $tujuan . '" class="sub-link ' . $aktif . $kelas_tata . '">'
+                 . '<span>' . $judul . '</span>' . $lencana . '</a>';
         }
 
         // Gabungkan beberapa link; kembalikan string kosong kalau tidak ada satupun.
+        // Nilai tiap item: 'Judul' | ['Judul', 'warna'] | ['Judul', 'warna', 'lencana']
         function kumpulkan($daftar) {
             $isi = '';
             foreach ($daftar as $tujuan => $judul) {
                 $warna = '';
-                if (is_array($judul)) { $warna = $judul[1]; $judul = $judul[0]; }
-                $isi .= link_menu($tujuan, $judul, $warna);
+                $lencana = '';
+                if (is_array($judul)) {
+                    $warna   = $judul[1] ?? '';
+                    $lencana = $judul[2] ?? '';
+                    $judul   = $judul[0];
+                }
+                $isi .= link_menu($tujuan, $judul, $warna, $lencana);
             }
             return $isi;
         }
@@ -255,15 +271,20 @@ $menu_driver    = ['driver_panel']; // Input SJ & List SJ driver numpang di menu
             ?>
 
             <!-- 5. PENJUALAN (SALES) -->
-            <?php folder_menu('jual', 'Penjualan (Sales)', 'fa-cart-shopping', 'text-blue-500', kumpulkan([
+            <?php
+            // Lencana retur: jumlah pengajuan pelanggan yang belum diproses admin.
+            $lencana_retur = $cek_retur > 0
+                ? '<span class="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full ml-2 animate-pulse">' . $cek_retur . '</span>'
+                : '';
+            folder_menu('jual', 'Penjualan (Sales)', 'fa-cart-shopping', 'text-blue-500', kumpulkan([
                 'pos'               => 'Kasir (POS)',
                 'input_surat_jalan' => 'Input Surat Jalan',
                 'riwayat_jual'      => 'Riwayat & Invoice',
                 'list_surat_jalan'  => 'Cetak Surat Jalan',
                 'pesanan_masuk'     => 'Pesanan Masuk',
                 'tracking_driver'   => 'Pantau Driver (Live)',
-                'data_retur'        => ['Retur dari Customer', 'text-rose-500'],
-            ]), $menu_jual); ?>
+                'data_retur'        => ['Retur dari Customer', 'text-rose-500', $lencana_retur],
+            ]), $menu_jual, $lencana_retur); ?>
 
             <!-- 6. KEUANGAN & REPORT -->
             <?php
