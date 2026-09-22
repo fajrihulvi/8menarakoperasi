@@ -292,7 +292,39 @@ if (!function_exists('format_rupiah')) {
             $d_tipis = mysqli_fetch_assoc($q_tipis); $tipis = $d_tipis['jlh'] ?? 0;
 
             // ==================================================================
-            // KPI PROFITABILITAS (SELURUH PERIODE)
+            // PERIODE KPI: filter per bulan, default bulan berjalan.
+            // Format ?periode=YYYY-MM; nilai tak dikenal dikembalikan ke bulan ini.
+            // ==================================================================
+            $periode_kpi = trim((string) ($_GET['periode'] ?? ''));
+            if (!preg_match('/^\d{4}-\d{2}$/', $periode_kpi)) {
+                $periode_kpi = date('Y-m');
+            }
+            $label_periode = date('F Y', strtotime($periode_kpi . '-01'));
+
+            // Daftar bulan untuk dropdown: ambil dari rentang data yang benar-benar ada,
+            // selalu termasuk bulan berjalan meski belum ada transaksi.
+            $opsi_periode = [];
+            $q_rentang = mysqli_query($conn, "
+                SELECT DATE_FORMAT(MIN(tanggal), '%Y-%m') AS awal
+                FROM transaksi
+                WHERE id_usaha = '$id_usaha' AND jenis_transaksi = 'keluar'");
+            $d_rentang = $q_rentang ? mysqli_fetch_assoc($q_rentang) : null;
+            $bln_awal  = $d_rentang['awal'] ?? date('Y-m');
+
+            $kursor = strtotime(date('Y-m') . '-01');
+            $batas  = strtotime($bln_awal . '-01');
+            if ($batas > $kursor) { $batas = $kursor; }
+            while ($kursor >= $batas) {
+                $opsi_periode[] = date('Y-m', $kursor);
+                $kursor = strtotime('-1 month', $kursor);
+            }
+            // Pastikan periode pilihan tetap ada di daftar (mis. dari URL lama).
+            if (!in_array($periode_kpi, $opsi_periode, true)) {
+                array_unshift($opsi_periode, $periode_kpi);
+            }
+
+            // ==================================================================
+            // KPI PROFITABILITAS (PER BULAN)
             // ------------------------------------------------------------------
             // Basis data sama dengan halaman Laporan Laba Rugi: hanya transaksi
             // penjualan yang sudah SELESAI dan LUNAS.
@@ -318,11 +350,12 @@ if (!function_exists('format_rupiah')) {
                 WHERE t.id_usaha = ?
                   AND t.jenis_transaksi = 'keluar'
                   AND t.status = 'selesai'
-                  AND t.status_bayar = 'lunas'";
+                  AND t.status_bayar = 'lunas'
+                  AND DATE_FORMAT(t.tanggal, '%Y-%m') = ?";
 
             $stmt_kpi = mysqli_prepare($conn, $sql_kpi);
             if ($stmt_kpi) {
-                mysqli_stmt_bind_param($stmt_kpi, 'i', $id_usaha);
+                mysqli_stmt_bind_param($stmt_kpi, 'is', $id_usaha, $periode_kpi);
                 mysqli_stmt_execute($stmt_kpi);
                 $res_kpi = mysqli_stmt_get_result($stmt_kpi);
                 if ($res_kpi && ($row_kpi = mysqli_fetch_assoc($res_kpi))) {
@@ -533,15 +566,32 @@ if (!function_exists('format_rupiah')) {
                 <p class="text-slate-700 font-medium">Ringkasan performa dan data real-time hari ini.</p>
             </div>
 
-            <!-- ================= KPI PROFITABILITAS (KESELURUHAN) ================= -->
+            <!-- ================= KPI PROFITABILITAS (PER BULAN) ================= -->
             <div class="mb-4 animate-fade-in" style="animation-delay: 0.05s;">
-                <h3 class="text-lg font-extrabold text-slate-800 flex items-center gap-3">
-                    <span class="bg-violet-100 text-violet-600 p-2 rounded-lg"><i class="fa-solid fa-chart-pie"></i></span>
-                    Kinerja Profitabilitas
-                    <span class="text-[11px] font-bold text-slate-500 bg-white/70 border border-white px-3 py-1 rounded-full">Seluruh Periode</span>
-                </h3>
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                    <h3 class="text-lg font-extrabold text-slate-800 flex items-center gap-3">
+                        <span class="bg-violet-100 text-violet-600 p-2 rounded-lg"><i class="fa-solid fa-chart-pie"></i></span>
+                        Kinerja Profitabilitas
+                        <span class="text-[11px] font-bold text-violet-700 bg-violet-100 border border-violet-200 px-3 py-1 rounded-full"><?= htmlspecialchars($label_periode, ENT_QUOTES, 'UTF-8') ?></span>
+                    </h3>
+
+                    <form method="GET" class="flex items-center gap-2 shrink-0">
+                        <input type="hidden" name="page" value="dashboard">
+                        <label class="text-[11px] font-bold text-slate-500 uppercase">Periode</label>
+                        <select name="periode" onchange="this.form.submit()" class="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white font-semibold text-slate-700">
+                            <?php foreach ($opsi_periode as $op): ?>
+                                <option value="<?= $op ?>" <?= $op === $periode_kpi ? 'selected' : '' ?>>
+                                    <?= date('F Y', strtotime($op . '-01')) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <?php if ($periode_kpi !== date('Y-m')): ?>
+                            <a href="index.php?page=dashboard" class="px-3 py-2 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold hover:bg-slate-200 transition">Bulan Ini</a>
+                        <?php endif; ?>
+                    </form>
+                </div>
                 <p class="text-slate-600 text-sm font-medium mt-1 ml-1">
-                    Dihitung dari transaksi penjualan berstatus <b>Selesai</b> &amp; <b>Lunas</b>.
+                    Dihitung dari transaksi penjualan berstatus <b>Selesai</b> &amp; <b>Lunas</b> pada periode terpilih.
                 </p>
             </div>
 
@@ -573,7 +623,7 @@ if (!function_exists('format_rupiah')) {
                             </div>
                             <span class="text-[10px] font-black uppercase tracking-wider text-blue-700 bg-blue-100 px-2.5 py-1 rounded-full">Omzet</span>
                         </div>
-                        <p class="text-xs font-extrabold text-slate-500 uppercase tracking-wider mb-1">Total Omzet Keseluruhan</p>
+                        <p class="text-xs font-extrabold text-slate-500 uppercase tracking-wider mb-1">Total Omzet Periode Ini</p>
                         <h3 class="text-2xl font-black text-slate-800 tracking-tight break-words"><?= format_rupiah($kpi_omzet) ?></h3>
                         <p class="text-[11px] font-semibold text-slate-500 mt-2">Dari <?= number_format($kpi_baris) ?> baris penjualan</p>
                     </div>
