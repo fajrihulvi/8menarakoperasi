@@ -137,7 +137,7 @@ $PETA_AKSI = [
         'hapus'  => [],           // hapus khusus admin
     ],
 
-    // Data Jenis Barang: PO & Gudang boleh kelola
+    // Data Kategori Konsumen: PO & Gudang boleh kelola
     'jenis_barang' => [
         'tambah' => ['po', 'gudang'],
         'edit'   => ['po', 'gudang'],

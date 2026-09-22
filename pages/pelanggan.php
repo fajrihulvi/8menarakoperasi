@@ -3,14 +3,20 @@
 wajib_akses('pelanggan');
 
 if(isset($_POST['simpan'])) {
-    tolak_jika_tidak_boleh('tambah', 'pelanggan', 'index.php?page=pelanggan');
+    $id_edit = (int) ($_POST['id_edit'] ?? 0);
+    tolak_jika_tidak_boleh($id_edit > 0 ? 'edit' : 'tambah', 'pelanggan', 'index.php?page=pelanggan');
 
     $nama   = mysqli_real_escape_string($conn, trim($_POST['nama'] ?? ''));
     $alamat = mysqli_real_escape_string($conn, trim($_POST['alamat'] ?? ''));
 
     if ($nama !== '') {
-        mysqli_query($conn, "INSERT INTO pelanggan (nama_pelanggan, alamat) VALUES ('$nama', '$alamat')");
-        catat_log($conn, "Tambah Pelanggan", "Menambah pelanggan: $nama");
+        if ($id_edit > 0) {
+            mysqli_query($conn, "UPDATE pelanggan SET nama_pelanggan='$nama', alamat='$alamat' WHERE id='$id_edit'");
+            catat_log($conn, "Edit Pelanggan", "Mengubah data pelanggan: $nama");
+        } else {
+            mysqli_query($conn, "INSERT INTO pelanggan (nama_pelanggan, alamat) VALUES ('$nama', '$alamat')");
+            catat_log($conn, "Tambah Pelanggan", "Menambah pelanggan: $nama");
+        }
     }
     echo "<script>window.location='index.php?page=pelanggan';</script>";
     exit;
@@ -35,17 +41,13 @@ if(isset($_GET['hapus'])) {
             <h3 class="text-xl font-bold text-gray-800">Data Pelanggan</h3>
             <p class="text-sm text-gray-500">Daftar pelanggan / dapur yang dilayani.</p>
         </div>
-    </div>
 
-    <?php if(boleh('tambah','pelanggan')): ?>
-    <form method="POST" class="mb-6 flex flex-col md:flex-row gap-2">
-        <input type="text" name="nama" placeholder="Nama Pelanggan" class="border p-2 rounded focus:outline-indigo-500" required>
-        <input type="text" name="alamat" placeholder="Alamat" class="border p-2 rounded flex-1 focus:outline-indigo-500" required>
-        <button type="submit" name="simpan" class="bg-indigo-600 text-white px-4 py-2 rounded font-bold hover:bg-indigo-700">
-            <i class="fa-solid fa-plus mr-1"></i> Simpan
+        <?php if(boleh('tambah','pelanggan')): ?>
+        <button onclick="bukaModalTambah()" class="bg-indigo-600 text-white px-4 py-2 rounded font-bold hover:bg-indigo-700">
+            <i class="fa-solid fa-plus mr-1"></i> Tambah Pelanggan
         </button>
-    </form>
-    <?php endif; ?>
+        <?php endif; ?>
+    </div>
 
     <div class="overflow-x-auto">
         <table class="w-full text-sm border">
@@ -53,7 +55,7 @@ if(isset($_GET['hapus'])) {
                 <tr>
                     <th class="p-3 border text-left">Nama</th>
                     <th class="p-3 border text-left">Alamat</th>
-                    <?php if(boleh('hapus','pelanggan')): ?><th class="p-3 border text-center w-20">Aksi</th><?php endif; ?>
+                    <?php if(boleh('edit','pelanggan') || boleh('hapus','pelanggan')): ?><th class="p-3 border text-center w-24">Aksi</th><?php endif; ?>
                 </tr>
             </thead>
             <tbody class="divide-y">
@@ -65,9 +67,14 @@ if(isset($_GET['hapus'])) {
                 <tr class="hover:bg-gray-50">
                     <td class="p-3 border font-semibold text-gray-700"><?= htmlspecialchars($r['nama_pelanggan']) ?></td>
                     <td class="p-3 border text-gray-500"><?= htmlspecialchars($r['alamat'] ?? '') ?></td>
-                    <?php if(boleh('hapus','pelanggan')): ?>
+                    <?php if(boleh('edit','pelanggan') || boleh('hapus','pelanggan')): ?>
                     <td class="p-3 border text-center">
-                        <a href="index.php?page=pelanggan&hapus=<?= $r['id'] ?>" onclick="return confirm('Hapus pelanggan ini?')" class="text-red-500 hover:text-red-700"><i class="fa-solid fa-trash"></i></a>
+                        <?php if(boleh('edit','pelanggan')): ?>
+                            <button onclick='bukaModalEdit(<?= htmlspecialchars(json_encode($r), ENT_QUOTES, "UTF-8") ?>)' class="text-indigo-600 hover:text-indigo-800 mr-2" title="Edit"><i class="fa-solid fa-pen-to-square"></i></button>
+                        <?php endif; ?>
+                        <?php if(boleh('hapus','pelanggan')): ?>
+                            <a href="index.php?page=pelanggan&hapus=<?= $r['id'] ?>" onclick="return confirm('Hapus pelanggan ini?')" class="text-red-500 hover:text-red-700" title="Hapus"><i class="fa-solid fa-trash"></i></a>
+                        <?php endif; ?>
                     </td>
                     <?php endif; ?>
                 </tr>
@@ -79,3 +86,42 @@ if(isset($_GET['hapus'])) {
         </table>
     </div>
 </div>
+
+<div id="modalPelanggan" class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg w-96 p-6 shadow-xl">
+        <h3 class="text-lg font-bold mb-4" id="judulModalPelanggan">Tambah Pelanggan Baru</h3>
+        <form method="POST">
+            <input type="hidden" name="id_edit" id="id_edit_pelanggan">
+            <div class="mb-3">
+                <label class="block text-sm font-bold mb-1">Nama Pelanggan</label>
+                <input type="text" name="nama" id="pel_nama" class="w-full border rounded p-2 focus:ring focus:ring-indigo-200" required>
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm font-bold mb-1">Alamat</label>
+                <input type="text" name="alamat" id="pel_alamat" class="w-full border rounded p-2 focus:ring focus:ring-indigo-200" required>
+            </div>
+            <div class="flex justify-end gap-2">
+                <button type="button" onclick="document.getElementById('modalPelanggan').classList.add('hidden')" class="bg-gray-200 text-gray-800 px-4 py-2 rounded">Batal</button>
+                <button type="submit" name="simpan" class="bg-indigo-600 text-white px-4 py-2 rounded">Simpan</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function bukaModalTambah() {
+        document.getElementById('judulModalPelanggan').innerText = 'Tambah Pelanggan Baru';
+        document.getElementById('id_edit_pelanggan').value = '';
+        document.getElementById('pel_nama').value = '';
+        document.getElementById('pel_alamat').value = '';
+        document.getElementById('modalPelanggan').classList.remove('hidden');
+    }
+
+    function bukaModalEdit(d) {
+        document.getElementById('judulModalPelanggan').innerText = 'Edit Pelanggan';
+        document.getElementById('id_edit_pelanggan').value = d.id;
+        document.getElementById('pel_nama').value = d.nama_pelanggan || '';
+        document.getElementById('pel_alamat').value = d.alamat || '';
+        document.getElementById('modalPelanggan').classList.remove('hidden');
+    }
+</script>

@@ -5,7 +5,8 @@ wajib_akses('warehouse');
 
 // Handle Simpan Data
 if(isset($_POST['simpan'])) {
-    tolak_jika_tidak_boleh('tambah', 'warehouse', 'index.php?page=warehouse');
+    $id_edit = (int) ($_POST['id_edit'] ?? 0);
+    tolak_jika_tidak_boleh($id_edit > 0 ? 'edit' : 'tambah', 'warehouse', 'index.php?page=warehouse');
 
     $nama = htmlspecialchars($_POST['nama']);
     $alamat = htmlspecialchars($_POST['alamat']);
@@ -14,8 +15,13 @@ if(isset($_POST['simpan'])) {
     $rekening = htmlspecialchars($_POST['no_rekening']);
     $akun = htmlspecialchars($_POST['nama_akun_rekening']);
 
-    $stmt = mysqli_prepare($conn, "INSERT INTO warehouse (nama_warehouse, alamat, email, nama_bank, no_rekening, nama_akun_rekening) VALUES (?, ?, ?, ?, ?, ?)");
-    mysqli_stmt_bind_param($stmt, 'ssssss', $nama, $alamat, $email, $bank, $rekening, $akun);
+    if ($id_edit > 0) {
+        $stmt = mysqli_prepare($conn, "UPDATE warehouse SET nama_warehouse=?, alamat=?, email=?, nama_bank=?, no_rekening=?, nama_akun_rekening=? WHERE id=?");
+        mysqli_stmt_bind_param($stmt, 'ssssssi', $nama, $alamat, $email, $bank, $rekening, $akun, $id_edit);
+    } else {
+        $stmt = mysqli_prepare($conn, "INSERT INTO warehouse (nama_warehouse, alamat, email, nama_bank, no_rekening, nama_akun_rekening) VALUES (?, ?, ?, ?, ?, ?)");
+        mysqli_stmt_bind_param($stmt, 'ssssss', $nama, $alamat, $email, $bank, $rekening, $akun);
+    }
     $simpan = mysqli_stmt_execute($stmt);
     if($simpan) echo "<script>window.location='index.php?page=warehouse';</script>";
 }
@@ -38,7 +44,7 @@ if(isset($_GET['hapus'])) {
         <h3 class="text-xl font-bold text-gray-800">Data Warehouse</h3>
 
         <?php if(boleh('tambah','warehouse')): ?>
-        <button onclick="toggleModal('modalWarehouse')" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">
+        <button onclick="bukaModalTambah()" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">
             <i class="fa-solid fa-plus mr-2"></i>Tambah Warehouse
         </button>
         <?php endif; ?>
@@ -90,8 +96,11 @@ if(isset($_GET['hapus'])) {
                     <td class="px-4 py-3"><?= $row['no_rekening'] ?></td>
                     <td class="px-4 py-3"><?= $row['nama_akun_rekening'] ?></td>
                     <td class="px-4 py-3 text-center">
+                        <?php if(boleh('edit','warehouse')): ?>
+                            <button onclick='bukaModalEdit(<?= htmlspecialchars(json_encode($row), ENT_QUOTES, "UTF-8") ?>)' class="text-indigo-600 hover:text-indigo-800 mr-2" title="Edit"><i class="fa-solid fa-pen-to-square"></i></button>
+                        <?php endif; ?>
                         <?php if(boleh('hapus','warehouse')): ?>
-                            <a href="index.php?page=warehouse&hapus=<?= $row['id'] ?>" onclick="return confirm('Hapus warehouse ini?')" class="text-red-500 hover:text-red-700"><i class="fa-solid fa-trash"></i></a>
+                            <a href="index.php?page=warehouse&hapus=<?= $row['id'] ?>" onclick="return confirm('Hapus warehouse ini?')" class="text-red-500 hover:text-red-700" title="Hapus"><i class="fa-solid fa-trash"></i></a>
                         <?php endif; ?>
                     </td>
                 </tr>
@@ -105,31 +114,32 @@ if(isset($_GET['hapus'])) {
 
 <div id="modalWarehouse" class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden flex items-center justify-center z-50">
     <div class="bg-white rounded-lg w-96 p-6 shadow-xl">
-        <h3 class="text-lg font-bold mb-4">Tambah Warehouse Baru</h3>
+        <h3 class="text-lg font-bold mb-4" id="judulModalWarehouse">Tambah Warehouse Baru</h3>
         <form method="POST">
+            <input type="hidden" name="id_edit" id="id_edit_warehouse">
             <div class="mb-3">
                 <label class="block text-sm font-bold mb-1">Nama Warehouse</label>
-                <input type="text" name="nama" class="w-full border rounded p-2 focus:ring focus:ring-indigo-200" required>
+                <input type="text" name="nama" id="wh_nama" class="w-full border rounded p-2 focus:ring focus:ring-indigo-200" required>
             </div>
             <div class="mb-3">
                 <label class="block text-sm font-bold mb-1">Email</label>
-                <input type="email" name="email" class="w-full border rounded p-2 focus:ring focus:ring-indigo-200">
+                <input type="email" name="email" id="wh_email" class="w-full border rounded p-2 focus:ring focus:ring-indigo-200">
             </div>
             <div class="mb-3">
                 <label class="block text-sm font-bold mb-1">Alamat</label>
-                <textarea name="alamat" class="w-full border rounded p-2 focus:ring focus:ring-indigo-200" rows="3"></textarea>
+                <textarea name="alamat" id="wh_alamat" class="w-full border rounded p-2 focus:ring focus:ring-indigo-200" rows="3"></textarea>
             </div>
             <div class="mb-3">
                 <label class="block text-sm font-bold mb-1">Nama Bank</label>
-                <input type="text" name="nama_bank" class="w-full border rounded p-2 focus:ring focus:ring-indigo-200">
+                <input type="text" name="nama_bank" id="wh_bank" class="w-full border rounded p-2 focus:ring focus:ring-indigo-200">
             </div>
             <div class="mb-3">
                 <label class="block text-sm font-bold mb-1">Nomor Rekening</label>
-                <input type="text" name="no_rekening" class="w-full border rounded p-2 focus:ring focus:ring-indigo-200">
+                <input type="text" name="no_rekening" id="wh_rekening" class="w-full border rounded p-2 focus:ring focus:ring-indigo-200">
             </div>
             <div class="mb-4">
                 <label class="block text-sm font-bold mb-1">Nama Akun pada Rekening</label>
-                <input type="text" name="nama_akun_rekening" class="w-full border rounded p-2 focus:ring focus:ring-indigo-200">
+                <input type="text" name="nama_akun_rekening" id="wh_akun" class="w-full border rounded p-2 focus:ring focus:ring-indigo-200">
             </div>
             <div class="flex justify-end gap-2">
                 <button type="button" onclick="toggleModal('modalWarehouse')" class="bg-gray-200 text-gray-800 px-4 py-2 rounded">Batal</button>
@@ -141,4 +151,28 @@ if(isset($_GET['hapus'])) {
 
 <script>
     function toggleModal(id) { document.getElementById(id).classList.toggle('hidden'); }
+
+    function bukaModalTambah() {
+        document.getElementById('judulModalWarehouse').innerText = 'Tambah Warehouse Baru';
+        document.getElementById('id_edit_warehouse').value = '';
+        document.getElementById('wh_nama').value = '';
+        document.getElementById('wh_email').value = '';
+        document.getElementById('wh_alamat').value = '';
+        document.getElementById('wh_bank').value = '';
+        document.getElementById('wh_rekening').value = '';
+        document.getElementById('wh_akun').value = '';
+        document.getElementById('modalWarehouse').classList.remove('hidden');
+    }
+
+    function bukaModalEdit(d) {
+        document.getElementById('judulModalWarehouse').innerText = 'Edit Warehouse';
+        document.getElementById('id_edit_warehouse').value = d.id;
+        document.getElementById('wh_nama').value = d.nama_warehouse || '';
+        document.getElementById('wh_email').value = d.email || '';
+        document.getElementById('wh_alamat').value = d.alamat || '';
+        document.getElementById('wh_bank').value = d.nama_bank || '';
+        document.getElementById('wh_rekening').value = d.no_rekening || '';
+        document.getElementById('wh_akun').value = d.nama_akun_rekening || '';
+        document.getElementById('modalWarehouse').classList.remove('hidden');
+    }
 </script>

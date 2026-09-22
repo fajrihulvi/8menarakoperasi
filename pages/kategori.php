@@ -5,15 +5,21 @@ wajib_akses('kategori');
 
 $id_usaha_aktif = $_SESSION['id_usaha'] ?? 1;
 
-// Handle Simpan Data
+// Handle Simpan Data (Tambah / Edit)
 if(isset($_POST['simpan'])) {
-    tolak_jika_tidak_boleh('tambah', 'kategori', 'index.php?page=kategori');
+    $id_edit = (int) ($_POST['id_edit'] ?? 0);
+    tolak_jika_tidak_boleh($id_edit > 0 ? 'edit' : 'tambah', 'kategori', 'index.php?page=kategori');
 
     $nama = trim(htmlspecialchars($_POST['nama_kategori']));
 
     if ($nama !== '') {
-        $stmt = mysqli_prepare($conn, "INSERT INTO kategori (id_usaha, nama_kategori) VALUES (?, ?)");
-        mysqli_stmt_bind_param($stmt, 'is', $id_usaha_aktif, $nama);
+        if ($id_edit > 0) {
+            $stmt = mysqli_prepare($conn, "UPDATE kategori SET nama_kategori=? WHERE id=? AND id_usaha=?");
+            mysqli_stmt_bind_param($stmt, 'sii', $nama, $id_edit, $id_usaha_aktif);
+        } else {
+            $stmt = mysqli_prepare($conn, "INSERT INTO kategori (id_usaha, nama_kategori) VALUES (?, ?)");
+            mysqli_stmt_bind_param($stmt, 'is', $id_usaha_aktif, $nama);
+        }
         if (!mysqli_stmt_execute($stmt)) {
             echo "<script>alert('Gagal menyimpan: kategori dengan nama ini mungkin sudah ada.'); window.history.back();</script>";
             exit();
@@ -40,7 +46,7 @@ if(isset($_GET['hapus'])) {
         <h3 class="text-xl font-bold text-gray-800">Data Kategori Barang</h3>
 
         <?php if(boleh('tambah','kategori')): ?>
-        <button onclick="toggleModal('modalKategori')" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">
+        <button onclick="bukaModalTambah()" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">
             <i class="fa-solid fa-plus mr-2"></i>Tambah Kategori
         </button>
         <?php endif; ?>
@@ -85,8 +91,11 @@ if(isset($_GET['hapus'])) {
                     <td class="px-4 py-3 font-medium text-gray-900"><?= $row['nama_kategori'] ?></td>
                     <td class="px-4 py-3 text-center"><?= (int)$jml ?></td>
                     <td class="px-4 py-3 text-center">
+                        <?php if(boleh('edit','kategori')): ?>
+                            <button onclick='bukaModalEdit(<?= htmlspecialchars(json_encode($row), ENT_QUOTES, "UTF-8") ?>)' class="text-indigo-600 hover:text-indigo-800 mr-2" title="Edit"><i class="fa-solid fa-pen-to-square"></i></button>
+                        <?php endif; ?>
                         <?php if(boleh('hapus','kategori')): ?>
-                            <a href="index.php?page=kategori&hapus=<?= $row['id'] ?>" onclick="return confirm('Hapus kategori ini? Barang yang memakai kategori ini akan menjadi tanpa kategori.')" class="text-red-500 hover:text-red-700"><i class="fa-solid fa-trash"></i></a>
+                            <a href="index.php?page=kategori&hapus=<?= $row['id'] ?>" onclick="return confirm('Hapus kategori ini? Barang yang memakai kategori ini akan menjadi tanpa kategori.')" class="text-red-500 hover:text-red-700" title="Hapus"><i class="fa-solid fa-trash"></i></a>
                         <?php endif; ?>
                     </td>
                 </tr>
@@ -100,11 +109,12 @@ if(isset($_GET['hapus'])) {
 
 <div id="modalKategori" class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden flex items-center justify-center z-50">
     <div class="bg-white rounded-lg w-96 p-6 shadow-xl">
-        <h3 class="text-lg font-bold mb-4">Tambah Kategori Baru</h3>
+        <h3 class="text-lg font-bold mb-4" id="judulModalKategori">Tambah Kategori Baru</h3>
         <form method="POST">
+            <input type="hidden" name="id_edit" id="id_edit_kategori">
             <div class="mb-4">
                 <label class="block text-sm font-bold mb-1">Nama Kategori</label>
-                <input type="text" name="nama_kategori" class="w-full border rounded p-2 focus:ring focus:ring-indigo-200" required>
+                <input type="text" name="nama_kategori" id="input_nama_kategori" class="w-full border rounded p-2 focus:ring focus:ring-indigo-200" required>
             </div>
             <div class="flex justify-end gap-2">
                 <button type="button" onclick="toggleModal('modalKategori')" class="bg-gray-200 text-gray-800 px-4 py-2 rounded">Batal</button>
@@ -116,4 +126,18 @@ if(isset($_GET['hapus'])) {
 
 <script>
     function toggleModal(id) { document.getElementById(id).classList.toggle('hidden'); }
+
+    function bukaModalTambah() {
+        document.getElementById('judulModalKategori').innerText = 'Tambah Kategori Baru';
+        document.getElementById('id_edit_kategori').value = '';
+        document.getElementById('input_nama_kategori').value = '';
+        document.getElementById('modalKategori').classList.remove('hidden');
+    }
+
+    function bukaModalEdit(d) {
+        document.getElementById('judulModalKategori').innerText = 'Edit Kategori';
+        document.getElementById('id_edit_kategori').value = d.id;
+        document.getElementById('input_nama_kategori').value = d.nama_kategori;
+        document.getElementById('modalKategori').classList.remove('hidden');
+    }
 </script>

@@ -152,7 +152,7 @@ if(isset($_POST['export_barang'])) {
     echo '<tr style="background-color: #4F46E5; color: white;">
             <th>No</th>
             <th>Kategori</th>
-            <th>Jenis Barang</th>
+            <th>Kategori Konsumen</th>
             <th>Nama Barang</th>
             <th>Kode Barang</th>
             <th>Satuan</th>
@@ -425,7 +425,7 @@ if(isset($_GET['hapus'])) {
                 <tr>
                     <th class="p-3 border text-center w-24">Aksi / Edit</th>
                     <th class="p-3 border">Kategori</th>
-                    <th class="p-3 border">Jenis Barang</th>
+                    <th class="p-3 border">Kategori Konsumen</th>
                     <th class="p-3 border">Nama Barang</th>
                     <th class="p-3 border text-center">Satuan</th>
                     <th class="p-3 border text-center">Stock</th>
@@ -610,9 +610,9 @@ if(isset($_GET['hapus'])) {
                 </div>
             </div>
             <div class="mb-3">
-                <label class="block text-xs font-bold text-gray-500">Jenis Barang</label>
+                <label class="block text-xs font-bold text-gray-500">Kategori Konsumen</label>
                 <select name="jenis_barang_id" id="jenis_barang_id" class="w-full border p-2 rounded">
-                    <option value="">-- Pilih Jenis Barang --</option>
+                    <option value="">-- Pilih Kategori Konsumen --</option>
                     <?php
                     $qjb = mysqli_query($conn, "SELECT id, jenis_barang FROM jenis_barang ORDER BY jenis_barang ASC");
                     while($jb = mysqli_fetch_assoc($qjb)) {
