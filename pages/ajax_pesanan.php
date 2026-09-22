@@ -2,18 +2,26 @@
 require '../config/koneksi.php';
 
 // Penjaga endpoint: wajib login & role yang berhak (config/hak_akses.php)
-wajib_login_ajax(['admin', 'po', 'gudang', 'accounting', 'viewer', 'invoice']);
+// Pelanggan & driver ikut diizinkan karena memakai halaman Riwayat Pesanan.
+wajib_login_ajax(['admin', 'po', 'gudang', 'accounting', 'viewer', 'invoice', 'pelanggan', 'driver'], 'html');
 
 if(isset($_POST['get_detail_pesanan'])) {
-    $id = mysqli_real_escape_string($conn, $_POST['id']);
-    
+    $id = (int) ($_POST['id'] ?? 0);
+
+    // Pelanggan hanya boleh melihat detail pesanan miliknya sendiri.
+    $role_ajax = strtolower($_SESSION['role'] ?? '');
+    $filter_pemilik = '';
+    if ($role_ajax === 'pelanggan') {
+        $filter_pemilik = " AND p.user_id = '" . (int) ($_SESSION['user_id'] ?? 0) . "'";
+    }
+
     // Ambil detail barang sekaligus status dari tabel header (pesanan)
-    $sql = "SELECT d.*, b.nama_barang, b.satuan, p.status 
-            FROM pesanan_detail d 
-            JOIN barang b ON d.id_barang = b.id 
-            JOIN pesanan p ON d.id_pesanan = p.id 
-            WHERE d.id_pesanan = '$id'";
-            
+    $sql = "SELECT d.*, b.nama_barang, b.satuan, p.status
+            FROM pesanan_detail d
+            JOIN barang b ON d.id_barang = b.id
+            JOIN pesanan p ON d.id_pesanan = p.id
+            WHERE d.id_pesanan = '$id'" . $filter_pemilik;
+
     $q = mysqli_query($conn, $sql);
     
     echo '<table class="w-full text-sm text-left">
