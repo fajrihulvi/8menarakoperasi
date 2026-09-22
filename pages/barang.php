@@ -39,6 +39,23 @@ function cekAtauBuatKategori($conn, $nama_kategori, $id_usaha) {
     }
 }
 
+/**
+ * Margin kotor per daerah, dalam persen:
+ * (harga daerah - proyeksi harga beli) / harga daerah * 100
+ * Mengembalikan null bila harga daerah belum diisi (0), karena pembagian
+ * nol tidak punya arti — pemanggil menampilkannya sebagai "-".
+ */
+function hitung_bruto($harga_daerah, $harga_beli) {
+    $harga_daerah = (float) $harga_daerah;
+    if ($harga_daerah <= 0) { return null; }
+    return (($harga_daerah - (float) $harga_beli) / $harga_daerah) * 100;
+}
+
+/** Tampilan persen bruto: "-" bila tidak bisa dihitung. */
+function format_bruto($bruto) {
+    return $bruto === null ? '-' : number_format($bruto, 1) . '%';
+}
+
 if(isset($_POST['cetak_pdf'])) {
     while (ob_get_level()) { ob_end_clean(); }
     $q_toko = mysqli_query($conn, "SELECT nama_usaha FROM master_usaha WHERE id='$id_usaha_aktif'");
@@ -47,13 +64,19 @@ if(isset($_POST['cetak_pdf'])) {
     // TANGKAP FILTER
     $filter_search = mysqli_real_escape_string($conn, $_POST['filter_search'] ?? '');
     $filter_kat = mysqli_real_escape_string($conn, $_POST['filter_kategori'] ?? '');
-    
+    $filter_jk  = (int) ($_POST['filter_jenis_barang'] ?? 0);
+
     $where_sql = "b.id_usaha = '$id_usaha_aktif'";
     $subtitle = "";
-    
+
     if (!empty($filter_kat)) {
         $where_sql .= " AND b.kategori = '$filter_kat'";
         $subtitle .= "Kategori: " . $filter_kat . " ";
+    }
+    if ($filter_jk > 0) {
+        $where_sql .= " AND b.jenis_barang_id = '$filter_jk'";
+        $d_jk = mysqli_fetch_assoc(mysqli_query($conn, "SELECT jenis_barang FROM jenis_barang WHERE id='$filter_jk'"));
+        if ($d_jk) { $subtitle .= "| Kategori Konsumen: " . $d_jk['jenis_barang'] . " "; }
     }
     if (!empty($filter_search)) {
         $where_sql .= " AND (b.nama_barang LIKE '%$filter_search%' OR b.kode_barang LIKE '%$filter_search%' OR b.kategori LIKE '%$filter_search%')";
@@ -138,17 +161,45 @@ if(isset($_POST['export_barang'])) {
 
     $filter_search = mysqli_real_escape_string($conn, $_POST['filter_search'] ?? '');
     $filter_kat = mysqli_real_escape_string($conn, $_POST['filter_kategori'] ?? '');
-    
+    $filter_jk  = (int) ($_POST['filter_jenis_barang'] ?? 0);
+
     $where_sql = "b.id_usaha = '$id_usaha_aktif'";
     if (!empty($filter_kat)) { $where_sql .= " AND b.kategori = '$filter_kat'"; }
+    if ($filter_jk > 0)      { $where_sql .= " AND b.jenis_barang_id = '$filter_jk'"; }
     if (!empty($filter_search)) { $where_sql .= " AND (b.nama_barang LIKE '%$filter_search%' OR b.kode_barang LIKE '%$filter_search%' OR b.kategori LIKE '%$filter_search%')"; }
 
+    // Ambil nama kategori konsumen untuk label berkas & keterangan isi.
+    $nama_jk = '';
+    if ($filter_jk > 0) {
+        $d_jk = mysqli_fetch_assoc(mysqli_query($conn, "SELECT jenis_barang FROM jenis_barang WHERE id='$filter_jk'"));
+        $nama_jk = $d_jk['jenis_barang'] ?? '';
+    }
+
+    // Sertakan kategori pada nama berkas agar unduhan per kategori mudah dibedakan.
+    $label_berkas = 'Master_Data_Barang';
+    if (!empty($filter_kat)) {
+        $label_berkas .= '_' . preg_replace('/[^A-Za-z0-9]+/', '_', $_POST['filter_kategori']);
+    }
+    if ($nama_jk !== '') {
+        $label_berkas .= '_' . preg_replace('/[^A-Za-z0-9]+/', '_', $nama_jk);
+    }
+
     header("Content-Type: application/vnd.ms-excel; charset=utf-8");
-    header("Content-Disposition: attachment; filename=Master_Data_Barang_" . date('Y-m-d') . ".xls");
+    header("Content-Disposition: attachment; filename=" . trim($label_berkas, '_') . "_" . date('Y-m-d') . ".xls");
     header("Pragma: no-cache");
     header("Expires: 0");
 
     echo '<table border="1">';
+
+    // Keterangan filter yang sedang dipakai, supaya isi berkas tidak ambigu.
+    $ket_filter = [];
+    if (!empty($filter_kat))    { $ket_filter[] = 'Kategori: ' . htmlspecialchars($_POST['filter_kategori'], ENT_QUOTES, 'UTF-8'); }
+    if ($nama_jk !== '')        { $ket_filter[] = 'Kategori Konsumen: ' . htmlspecialchars($nama_jk, ENT_QUOTES, 'UTF-8'); }
+    if (!empty($filter_search)) { $ket_filter[] = 'Pencarian: "' . htmlspecialchars($_POST['filter_search'], ENT_QUOTES, 'UTF-8') . '"'; }
+    echo '<tr><td colspan="21" style="font-weight:bold;">Master Data Barang &mdash; '
+         . ($ket_filter ? implode(' | ', $ket_filter) : 'Semua Kategori')
+         . ' (diunduh ' . date('d/m/Y H:i') . ')</td></tr>';
+
     echo '<tr style="background-color: #4F46E5; color: white;">
             <th>No</th>
             <th>Kategori</th>
@@ -161,8 +212,11 @@ if(isset($_POST['export_barang'])) {
             <th>Supplier</th>
             <th>Warehouse</th>
             <th>Harga Pangkalpinang</th>
+            <th>Bruto Pangkalpinang (%)</th>
             <th>Harga Bangka Tengah</th>
+            <th>Bruto Bangka Tengah (%)</th>
             <th>Harga Bangka Barat</th>
+            <th>Bruto Bangka Barat (%)</th>
             <th>Proyeksi Harga Beli (Modal)</th>
             <th>Proyeksi Harga Jual (Umum)</th>
             <th>Harga HET</th>
@@ -187,9 +241,13 @@ if(isset($_POST['export_barang'])) {
         echo '<td>' . $row['min_stok'] . '</td>';
         echo '<td>' . ($row['nama_supplier'] ?? '-') . '</td>';
         echo '<td>' . ($row['nama_warehouse'] ?? '-') . '</td>';
+        $hb_x = (float) $row['harga_beli'];
         echo '<td>' . $row['harga_gabek'] . '</td>';
+        echo '<td>' . format_bruto(hitung_bruto($row['harga_gabek'], $hb_x)) . '</td>';
         echo '<td>' . $row['harga_kereta'] . '</td>';
+        echo '<td>' . format_bruto(hitung_bruto($row['harga_kereta'], $hb_x)) . '</td>';
         echo '<td>' . ($row['harga_jebus'] ?? 0) . '</td>';
+        echo '<td>' . format_bruto(hitung_bruto($row['harga_jebus'] ?? 0, $hb_x)) . '</td>';
         echo '<td>' . $row['harga_beli'] . '</td>';
         echo '<td>' . $row['harga_jual'] . '</td>';
         echo '<td>' . $row['harga_head'] . '</td>';
@@ -388,9 +446,20 @@ if(isset($_GET['hapus'])) {
                 $opsi_kat .= '<option value="' . $kv . '"' . ($k['nama_kategori'] === $kat_terpilih ? ' selected' : '') . '>' . $kv . '</option>';
             }
             $opsi_kat .= '</select>';
+
+            // Filter Kategori Konsumen (Horeka / SPPG)
+            $jk_terpilih = trim((string) ($_GET['jenis_barang_id'] ?? ''));
+            $opsi_jk = '<select name="jenis_barang_id" class="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white">'
+                     . '<option value="">-- Semua Kategori Konsumen --</option>';
+            $q_jk = mysqli_query($conn, "SELECT id, jenis_barang FROM jenis_barang ORDER BY jenis_barang ASC");
+            while ($j = mysqli_fetch_assoc($q_jk)) {
+                $jv = htmlspecialchars($j['jenis_barang'], ENT_QUOTES, 'UTF-8');
+                $opsi_jk .= '<option value="' . $j['id'] . '"' . ($jk_terpilih === (string) $j['id'] ? ' selected' : '') . '>' . $jv . '</option>';
+            }
+            $opsi_jk .= '</select>';
             ?>
             <div class="w-full md:w-2/3">
-                <?= render_filter('Cari Nama / Kode / Kategori...', $opsi_kat) ?>
+                <?= render_filter('Cari Nama / Kode / Kategori...', $opsi_kat . $opsi_jk) ?>
             </div>
             
             <div class="flex flex-wrap gap-2 justify-end w-full md:w-1/2">
@@ -404,15 +473,24 @@ if(isset($_GET['hapus'])) {
                     <form method="POST" class="inline" onsubmit="return confirm('RESET SEMUA DATA BARANG??')"><button type="submit" name="hapus_semua_barang" class="bg-red-600 text-white px-3 py-2 rounded font-bold hover:bg-red-700 text-xs shadow"><i class="fa-solid fa-bomb mr-1"></i> Reset</button></form>
                 <?php endif; ?>
                 
-                <form method="POST" class="inline" id="formExcel" onsubmit="updateHiddenFilters()">
-                    <input type="hidden" name="filter_search" class="hidden-search">
-                    <input type="hidden" name="filter_kategori" class="hidden-kategori">
+                <?php
+                // Nilai filter diambil langsung dari URL (server-side) supaya hasil
+                // unduhan selalu mengikuti pencarian & kategori yang sedang aktif.
+                $ekspor_cari = htmlspecialchars(ambil_kata_kunci(), ENT_QUOTES, 'UTF-8');
+                $ekspor_kat  = htmlspecialchars($kat_terpilih, ENT_QUOTES, 'UTF-8');
+                $ekspor_jk   = htmlspecialchars($jk_terpilih, ENT_QUOTES, 'UTF-8');
+                ?>
+                <form method="POST" class="inline" id="formExcel">
+                    <input type="hidden" name="filter_search" value="<?= $ekspor_cari ?>">
+                    <input type="hidden" name="filter_kategori" value="<?= $ekspor_kat ?>">
+                    <input type="hidden" name="filter_jenis_barang" value="<?= $ekspor_jk ?>">
                     <button type="submit" name="export_barang" class="bg-gray-600 text-white px-3 py-2 rounded font-bold hover:bg-gray-700 text-xs shadow"><i class="fa-solid fa-file-excel mr-1"></i> Excel</button>
                 </form>
-                
-                <form method="POST" class="inline" target="_blank" id="formPdf" onsubmit="updateHiddenFilters()">
-                    <input type="hidden" name="filter_search" class="hidden-search">
-                    <input type="hidden" name="filter_kategori" class="hidden-kategori">
+
+                <form method="POST" class="inline" target="_blank" id="formPdf">
+                    <input type="hidden" name="filter_search" value="<?= $ekspor_cari ?>">
+                    <input type="hidden" name="filter_kategori" value="<?= $ekspor_kat ?>">
+                    <input type="hidden" name="filter_jenis_barang" value="<?= $ekspor_jk ?>">
                     <button type="submit" name="cetak_pdf" class="bg-red-600 text-white px-3 py-2 rounded font-bold hover:bg-red-700 text-xs shadow"><i class="fa-solid fa-file-pdf mr-1"></i> Cetak PDF</button>
                 </form>
             </div>
@@ -433,8 +511,11 @@ if(isset($_GET['hapus'])) {
                     <th class="p-3 border">Supplier</th>
                     <th class="p-3 border">Warehouse</th>
                     <th class="p-3 border text-right bg-blue-50 text-blue-800">Harga PANGKALPINANG</th>
+                    <th class="p-3 border text-right bg-sky-50 text-sky-800">Bruto PANGKALPINANG</th>
                     <th class="p-3 border text-right bg-blue-50 text-blue-800">Harga BANGKA TENGAH</th>
+                    <th class="p-3 border text-right bg-sky-50 text-sky-800">Bruto BANGKA TENGAH</th>
                     <th class="p-3 border text-right bg-blue-50 text-blue-800">Harga BANGKA BARAT</th>
+                    <th class="p-3 border text-right bg-sky-50 text-sky-800">Bruto BANGKA BARAT</th>
                     <th class="p-3 border text-right text-red-600">Proyeksi Harga Beli</th>
                     <th class="p-3 border text-right text-green-600">Proyeksi Harga Jual</th>
                     <th class="p-3 border text-right bg-yellow-50">Harga HET</th>
@@ -452,12 +533,19 @@ if(isset($_GET['hapus'])) {
                 // ==========================================================
                 $b_cari  = ambil_kata_kunci();
                 $b_kat   = trim((string) ($_GET['kategori'] ?? ''));
+                $b_jk    = trim((string) ($_GET['jenis_barang_id'] ?? ''));
                 $b_hal   = ambil_halaman();
                 $b_limit = ambil_per_halaman();
 
                 $b_where_tambahan = ['b.id_usaha = ?'];
                 $b_params_tambahan = [$id_usaha_aktif];
                 $b_tipe_tambahan   = 'i';
+
+                if ($b_jk !== '') {
+                    $b_where_tambahan[]  = 'b.jenis_barang_id = ?';
+                    $b_params_tambahan[] = (int) $b_jk;
+                    $b_tipe_tambahan    .= 'i';
+                }
 
                 if ($b_kat !== '') {
                     $b_where_tambahan[]  = 'b.kategori = ?';
@@ -490,7 +578,7 @@ if(isset($_GET['hapus'])) {
                 $b_rows = ambil_data($conn, $b_select, $b_where, $b_params, $b_tipe,
                                      'ORDER BY b.id DESC', $b_limit, $b_offset);
 
-                if (!$b_rows) { echo render_kosong(15, 'Tidak ada barang yang cocok dengan pencarian.'); }
+                if (!$b_rows) { echo render_kosong(21, 'Tidak ada barang yang cocok dengan pencarian.'); }
 
                 foreach ($b_rows as $r):
                     $is_pending = ($r['is_pending'] > 0);
@@ -552,11 +640,25 @@ if(isset($_GET['hapus'])) {
                     <td class="p-3 border text-indigo-600 font-medium"><?= $r['nama_supplier'] ?? '-' ?></td>
                     <td class="p-3 border text-cyan-700 font-medium"><?= $r['nama_warehouse'] ?? '-' ?></td>
                     
+                    <?php
+                        // Margin kotor per daerah terhadap proyeksi harga beli.
+                        $hb_r = (float) $r['harga_beli'];
+                        $bruto_gabek  = hitung_bruto($r['harga_gabek'], $hb_r);
+                        $bruto_kereta = hitung_bruto($r['harga_kereta'], $hb_r);
+                        $bruto_jebus  = hitung_bruto($r['harga_jebus'] ?? 0, $hb_r);
+                        $warna_bruto  = function ($b) {
+                            if ($b === null) { return 'text-gray-300'; }
+                            return $b < 0 ? 'text-red-600' : 'text-sky-700';
+                        };
+                    ?>
                     <td class="p-3 border text-right bg-blue-50 font-bold text-blue-700"><?= number_format((float)$r['harga_gabek']) ?></td>
-                    
+                    <td class="p-3 border text-right bg-sky-50 font-bold <?= $warna_bruto($bruto_gabek) ?>"><?= format_bruto($bruto_gabek) ?></td>
+
                     <td class="p-3 border text-right bg-blue-50 font-bold text-blue-700"><?= number_format((float)$r['harga_kereta']) ?></td>
-                    
+                    <td class="p-3 border text-right bg-sky-50 font-bold <?= $warna_bruto($bruto_kereta) ?>"><?= format_bruto($bruto_kereta) ?></td>
+
                     <td class="p-3 border text-right bg-blue-50 font-bold text-blue-700"><?= number_format((float)($r['harga_jebus'] ?? 0)) ?></td>
+                    <td class="p-3 border text-right bg-sky-50 font-bold <?= $warna_bruto($bruto_jebus) ?>"><?= format_bruto($bruto_jebus) ?></td>
 
                     <td class="p-3 border text-right text-red-600"><?= number_format((float)$r['harga_beli']) ?></td>
                     
@@ -702,37 +804,6 @@ if(isset($_GET['hapus'])) {
 </div>
 
 <script>
-function updateHiddenFilters() {
-    let inputSearch = document.getElementById('searchInput').value;
-    let inputKategori = document.getElementById('filterKategori').value;
-    
-    document.querySelectorAll('.hidden-search').forEach(el => el.value = inputSearch);
-    document.querySelectorAll('.hidden-kategori').forEach(el => el.value = inputKategori);
-}
-
-function cariBarang() {
-    let inputSearch = document.getElementById('searchInput').value.toUpperCase().trim();
-    let inputKategori = document.getElementById('filterKategori').value.toUpperCase().trim();
-    let tr = document.getElementById('tabelBarang').getElementsByTagName('tr');
-    
-    for (let i = 1; i < tr.length; i++) {
-        let n = tr[i].getElementsByClassName('barang-nama')[0];
-        let m = tr[i].getElementsByClassName('barang-meta')[0];
-        let k = tr[i].getElementsByClassName('barang-kategori')[0]; 
-        
-        if (n || m || k) {
-            let textN = n ? n.innerText.toUpperCase().trim() : '';
-            let textM = m ? m.innerText.toUpperCase().trim() : '';
-            let textK = k ? k.innerText.toUpperCase().trim() : '';
-            
-            let textAll = textN + " " + textM + " " + textK;
-            let matchSearch = textAll.indexOf(inputSearch) > -1;
-            let matchKategori = (inputKategori === "") || (textK === inputKategori);
-            
-            tr[i].style.display = (matchSearch && matchKategori) ? "" : "none";
-        }
-    }
-}
 function openModal() {
     document.getElementById('modalBarang').classList.remove('hidden');
     document.getElementById('modalTitle').innerText = 'Tambah Barang';
