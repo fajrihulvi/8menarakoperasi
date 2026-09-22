@@ -9,8 +9,16 @@ if(file_exists('config/koneksi.php')) {
     else die("Error: File koneksi.php tidak ditemukan!");
 }
 
-// 2. Ambil Parameter Faktur (Support GET 'faktur' atau 'no_faktur')
-$faktur = $_GET['faktur'] ?? $_GET['no_faktur'] ?? '';
+// 2a. Mode surat jalan bertahap: ?sj=<id> mencetak hanya item pada surat jalan itu.
+$sj_id = (int) ($_GET['sj'] ?? 0);
+$sj_data = null;
+if($sj_id > 0) {
+    $sj_data = mysqli_fetch_assoc(mysqli_query($conn, "SELECT * FROM surat_jalan WHERE id='$sj_id'"));
+    if(!$sj_data) die("Surat jalan tidak ditemukan");
+}
+
+// 2b. Ambil Parameter Faktur (Support GET 'faktur' atau 'no_faktur')
+$faktur = $sj_data['no_pesanan'] ?? ($_GET['faktur'] ?? $_GET['no_faktur'] ?? '');
 
 if(empty($faktur)) die("Faktur tidak ditemukan");
 
@@ -38,6 +46,30 @@ if (!$query_run) {
 
 $trx = mysqli_fetch_assoc($query_run);
 
+// Pesanan yang baru tahap Pengiriman belum punya baris transaksi.
+// Ambil identitasnya langsung dari tabel pesanan agar surat jalan tetap bisa dicetak.
+if (!$trx) {
+    $faktur_safe = mysqli_real_escape_string($conn, $faktur);
+    $trx = mysqli_fetch_assoc(mysqli_query($conn, "
+        SELECT ps.no_pesanan AS no_faktur, ps.tanggal, ps.total_bayar AS total_transaksi,
+               ps.pelanggan_id, ps.nama_driver, ps.nopol, ps.lokasi_kirim,
+               p.nama_pelanggan AS nama_master, p.alamat AS alamat_master,
+               ps.nama_driver AS driver_pesanan, ps.nopol AS nopol_pesanan,
+               ps.nama_pelanggan AS nama_manual_pesanan, ps.alamat AS alamat_manual_pesanan,
+               ps.lokasi_kirim AS lokasi_pesanan
+        FROM pesanan ps
+        LEFT JOIN pelanggan p ON ps.pelanggan_id = p.id
+        WHERE ps.no_pesanan = '$faktur_safe'"));
+
+    if (!$trx) { die("Data pesanan tidak ditemukan"); }
+}
+
+// Surat jalan bertahap memakai driver/nopol yang tercatat saat surat itu dibuat.
+if ($sj_data) {
+    if (!empty($sj_data['nama_driver'])) { $trx['nama_driver'] = $sj_data['nama_driver']; }
+    if (!empty($sj_data['nopol']))       { $trx['nopol']       = $sj_data['nopol']; }
+}
+
 // --- LOGIKA PRIORITAS DATA (SINKRONISASI) ---
 // 1. Driver & Nopol (Ambil dari transaksi dulu, jika kosong ambil dari pesanan)
 $nama_driver = !empty($trx['nama_driver']) ? $trx['nama_driver'] : (!empty($trx['driver_pesanan']) ? $trx['driver_pesanan'] : '-');
@@ -59,7 +91,8 @@ $id_usaha = $trx['id_usaha'] ?? 1;
 $info = mysqli_fetch_assoc(mysqli_query($conn, "SELECT * FROM pengaturan WHERE id_usaha='$id_usaha' LIMIT 1"));
 
 // 5. Ubah Format Nomor: INV/... menjadi SJ/...
-$no_surat = str_replace(["INV", "TRX", "ORD"], "SJ", $faktur);
+// Surat jalan bertahap punya nomor sendiri; selain itu turunkan dari nomor faktur.
+$no_surat = $sj_data['no_surat_jalan'] ?? str_replace(["INV", "TRX", "ORD"], "SJ", $faktur);
 
 // 6. Fungsi Format Tanggal Indonesia
 function tgl_indo($tanggal){
@@ -182,13 +215,24 @@ function tgl_indo($tanggal){
             <tbody>
                 <?php
                 $no = 1;
-                $q_detail = mysqli_query($conn, "
-                    SELECT td.qty, b.nama_barang, b.satuan 
-                    FROM transaksi_detail td 
-                    JOIN barang b ON td.barang_id = b.id 
-                    WHERE td.no_faktur='$faktur'
-                ");
-                
+                if ($sj_data) {
+                    // Hanya item yang dibawa pada surat jalan ini.
+                    $q_detail = mysqli_query($conn, "
+                        SELECT sd.qty_kirim AS qty, b.nama_barang, b.satuan
+                        FROM surat_jalan_detail sd
+                        JOIN barang b ON sd.id_barang = b.id
+                        WHERE sd.surat_jalan_id = '$sj_id'
+                        ORDER BY b.nama_barang ASC
+                    ");
+                } else {
+                    $q_detail = mysqli_query($conn, "
+                        SELECT td.qty, b.nama_barang, b.satuan
+                        FROM transaksi_detail td
+                        JOIN barang b ON td.barang_id = b.id
+                        WHERE td.no_faktur='$faktur'
+                    ");
+                }
+
                 while($d = mysqli_fetch_assoc($q_detail)):
                 ?>
                 <tr>

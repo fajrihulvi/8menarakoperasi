@@ -27,6 +27,118 @@ if(isset($_POST['hapus_pesanan'])) {
 }
 
 // ==========================================
+// AJAX: DAFTAR ITEM + SISA YANG BELUM DIKIRIM
+// Dipakai modal Pengiriman untuk memilih item mana yang dibawa kali ini.
+// ==========================================
+if(isset($_POST['get_item_kirim'])) {
+    while (ob_get_level()) { ob_end_clean(); }
+    header('Content-Type: application/json; charset=utf-8');
+
+    $id_psn = (int) ($_POST['id_pesanan'] ?? 0);
+    $items = [];
+
+    $q_it = mysqli_query($conn, "
+        SELECT d.id, d.id_barang, d.qty, d.catatan, b.nama_barang, b.satuan,
+               COALESCE((SELECT SUM(sd.qty_kirim) FROM surat_jalan_detail sd
+                         WHERE sd.pesanan_detail_id = d.id), 0) AS qty_terkirim
+        FROM pesanan_detail d
+        JOIN barang b ON d.id_barang = b.id
+        WHERE d.id_pesanan = '$id_psn'
+        ORDER BY b.nama_barang ASC");
+
+    while($it = mysqli_fetch_assoc($q_it)) {
+        $qty    = (float) $it['qty'];
+        $kirim  = (float) $it['qty_terkirim'];
+        $sisa   = max(0, $qty - $kirim);
+        $items[] = [
+            'id'           => (int) $it['id'],
+            'nama_barang'  => $it['nama_barang'],
+            'satuan'       => $it['satuan'],
+            'catatan'      => $it['catatan'] ?? '',
+            'qty'          => $qty,
+            'qty_terkirim' => $kirim,
+            'sisa'         => $sisa,
+            'lunas_kirim'  => $sisa <= 0,
+        ];
+    }
+
+    echo json_encode(['status' => 'success', 'items' => $items]);
+    exit;
+}
+
+// ==========================================
+// BUAT SURAT JALAN (BISA BERTAHAP / SEBAGIAN ITEM)
+// ==========================================
+if(isset($_POST['buat_surat_jalan'])) {
+    $id_psn      = (int) ($_POST['id_pesanan'] ?? 0);
+    $nama_driver = mysqli_real_escape_string($conn, $_POST['nama_driver'] ?? '');
+    $nopol       = mysqli_real_escape_string($conn, $_POST['nopol'] ?? '');
+    $kirim       = $_POST['qty_kirim'] ?? [];   // [pesanan_detail_id => qty]
+
+    $d_psn = mysqli_fetch_assoc(mysqli_query($conn, "SELECT no_pesanan, status FROM pesanan WHERE id='$id_psn' AND id_usaha='$id_usaha'"));
+
+    if(!$d_psn) {
+        echo "<script>alert('Pesanan tidak ditemukan.'); window.location='index.php?page=pesanan_masuk';</script>";
+    } else {
+        // Validasi tiap baris terhadap sisa yang benar-benar belum dikirim,
+        // supaya total terkirim tidak pernah melebihi jumlah yang dipesan.
+        $baris_sah = [];
+        foreach($kirim as $id_detail => $qty_minta) {
+            $id_detail = (int) $id_detail;
+            $qty_minta = (float) str_replace(',', '.', $qty_minta);
+            if($qty_minta <= 0) continue;
+
+            $d_it = mysqli_fetch_assoc(mysqli_query($conn, "
+                SELECT d.id, d.id_barang, d.qty,
+                       COALESCE((SELECT SUM(sd.qty_kirim) FROM surat_jalan_detail sd
+                                 WHERE sd.pesanan_detail_id = d.id), 0) AS qty_terkirim
+                FROM pesanan_detail d
+                WHERE d.id = '$id_detail' AND d.id_pesanan = '$id_psn'"));
+
+            if(!$d_it) continue;
+            $sisa = (float)$d_it['qty'] - (float)$d_it['qty_terkirim'];
+            if($sisa <= 0) continue;
+
+            $baris_sah[] = [
+                'pesanan_detail_id' => (int) $d_it['id'],
+                'id_barang'         => (int) $d_it['id_barang'],
+                'qty_kirim'         => min($qty_minta, $sisa),
+            ];
+        }
+
+        if(!$baris_sah) {
+            echo "<script>alert('Pilih minimal satu item yang masih punya sisa kirim.'); window.location='index.php?page=pesanan_masuk';</script>";
+        } else {
+            $no_pesanan_safe = mysqli_real_escape_string($conn, $d_psn['no_pesanan']);
+            $no_sj   = 'SJ-' . date('ymdHis');
+            $user_id_admin = (int) ($_SESSION['user_id'] ?? 0);
+
+            $q_sj = "INSERT INTO surat_jalan (id_usaha, no_surat_jalan, id_pesanan, no_pesanan, nama_driver, nopol, user_id)
+                     VALUES ('$id_usaha', '$no_sj', '$id_psn', '$no_pesanan_safe', '$nama_driver', '$nopol', '$user_id_admin')";
+
+            if(mysqli_query($conn, $q_sj)) {
+                $sj_id = mysqli_insert_id($conn);
+                foreach($baris_sah as $b) {
+                    mysqli_query($conn, "INSERT INTO surat_jalan_detail (surat_jalan_id, pesanan_detail_id, id_barang, qty_kirim)
+                                         VALUES ('$sj_id', '{$b['pesanan_detail_id']}', '{$b['id_barang']}', '{$b['qty_kirim']}')");
+                }
+
+                // Status pesanan naik ke Pengiriman (stok belum dipotong di tahap ini).
+                mysqli_query($conn, "UPDATE pesanan SET status='Pengiriman', nama_driver='$nama_driver', nopol='$nopol' WHERE id='$id_psn'");
+
+                if(function_exists('catat_log')) {
+                    catat_log($conn, 'Buat Surat Jalan', "Surat jalan $no_sj untuk pesanan {$d_psn['no_pesanan']} (" . count($baris_sah) . " item)");
+                }
+
+                echo "<script>alert('Surat Jalan $no_sj dibuat (" . count($baris_sah) . " item).'); window.open('cetak_surat_jalan.php?sj=$sj_id', '_blank'); window.location='index.php?page=pesanan_masuk';</script>";
+            } else {
+                echo "<script>alert('Gagal membuat surat jalan.'); window.location='index.php?page=pesanan_masuk';</script>";
+            }
+        }
+    }
+}
+
+// ==========================================
 // 2. PROSES UPDATE (ADMIN) & HITUNG ULANG HARGA
 // ==========================================
 if(isset($_POST['update_pesanan'])) {
@@ -458,7 +570,7 @@ if(isset($_POST['export_excel'])) {
             </div>
             <div class="mb-5">
                 <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Status</label>
-                <select name="status_baru" id="input_status" class="w-full border p-2 rounded bg-indigo-50 text-indigo-800 font-bold">
+                <select name="status_baru" id="input_status" onchange="cekStatusKirim()" class="w-full border p-2 rounded bg-indigo-50 text-indigo-800 font-bold">
                     <option value="Pending">Pending</option>
                     <option value="Persiapan">Persiapan</option>
                     <option value="Pengiriman">Pengiriman (Buat Surat Jalan)</option>
@@ -468,7 +580,28 @@ if(isset($_POST['export_excel'])) {
                 </select>
             </div>
 
-            <button type="submit" name="update_pesanan" class="w-full bg-indigo-600 text-white font-bold py-3 rounded hover:bg-indigo-700">SIMPAN & PROSES</button>
+            <!-- Panel pemilihan item: hanya tampil saat status Pengiriman -->
+            <div id="panelKirim" class="mb-5 hidden">
+                <div class="flex justify-between items-center mb-2">
+                    <label class="block text-xs font-bold text-gray-500 uppercase">Item yang Dikirim</label>
+                    <button type="button" onclick="toggleSemuaItem()" id="btnPilihSemua" class="text-[11px] font-bold text-indigo-600 hover:underline">Pilih Semua Sisa</button>
+                </div>
+                <div id="isiItemKirim" class="border rounded-lg divide-y max-h-64 overflow-y-auto bg-white">
+                    <p class="p-4 text-center text-xs text-gray-400">Memuat item...</p>
+                </div>
+                <div class="mt-2 flex justify-between items-center bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2">
+                    <span class="text-xs font-bold text-indigo-700 uppercase">Total item dikirim</span>
+                    <span id="lblTotalKirim" class="text-sm font-bold text-indigo-800">0 item</span>
+                </div>
+                <p id="pesanSemuaTerkirim" class="hidden mt-2 text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2">
+                    <i class="fa-solid fa-circle-check mr-1"></i> Semua item pesanan ini sudah dibuatkan surat jalan.
+                </p>
+            </div>
+
+            <button type="submit" name="update_pesanan" id="btnSimpanProses" class="w-full bg-indigo-600 text-white font-bold py-3 rounded hover:bg-indigo-700">SIMPAN & PROSES</button>
+            <button type="submit" name="buat_surat_jalan" id="btnBuatSJ" class="w-full bg-blue-600 text-white font-bold py-3 rounded hover:bg-blue-700 hidden">
+                <i class="fa-solid fa-truck-fast mr-1"></i> BUAT SURAT JALAN
+            </button>
         </form>
     </div>
 </div>
@@ -493,6 +626,112 @@ function prosesPesanan(data) {
     let drvSelect = document.getElementById('input_driver');
     drvSelect.value = data.nama_driver || '';
     isiNopolOtomatis();
+
+    idPesananAktif = data.id;
+    cekStatusKirim();
+}
+
+// ===== PEMILIHAN ITEM UNTUK SURAT JALAN (PENGIRIMAN BERTAHAP) =====
+let idPesananAktif = 0;
+
+function cekStatusKirim() {
+    const status = document.getElementById('input_status').value;
+    const panel  = document.getElementById('panelKirim');
+    const btnSimpan = document.getElementById('btnSimpanProses');
+    const btnSJ  = document.getElementById('btnBuatSJ');
+
+    if (status === 'Pengiriman') {
+        panel.classList.remove('hidden');
+        btnSimpan.classList.add('hidden');
+        btnSJ.classList.remove('hidden');
+        muatItemKirim();
+    } else {
+        panel.classList.add('hidden');
+        btnSimpan.classList.remove('hidden');
+        btnSJ.classList.add('hidden');
+    }
+}
+
+function muatItemKirim() {
+    const wadah = document.getElementById('isiItemKirim');
+    wadah.innerHTML = '<p class="p-4 text-center text-xs text-gray-400">Memuat item...</p>';
+
+    const fd = new FormData();
+    fd.append('get_item_kirim', true);
+    fd.append('id_pesanan', idPesananAktif);
+
+    fetch('index.php?page=pesanan_masuk', { method: 'POST', body: fd })
+        .then(r => r.json())
+        .then(d => {
+            if (d.status !== 'success' || !d.items.length) {
+                wadah.innerHTML = '<p class="p-4 text-center text-xs text-gray-400">Tidak ada item pada pesanan ini.</p>';
+                return;
+            }
+
+            const semuaTerkirim = d.items.every(it => it.lunas_kirim);
+            document.getElementById('pesanSemuaTerkirim').classList.toggle('hidden', !semuaTerkirim);
+            document.getElementById('btnBuatSJ').disabled = semuaTerkirim;
+            document.getElementById('btnBuatSJ').classList.toggle('opacity-50', semuaTerkirim);
+            document.getElementById('btnBuatSJ').classList.toggle('cursor-not-allowed', semuaTerkirim);
+
+            wadah.innerHTML = d.items.map(it => barisItem(it)).join('');
+            hitungTotalKirim();
+        })
+        .catch(() => {
+            wadah.innerHTML = '<p class="p-4 text-center text-xs text-red-500">Gagal memuat item.</p>';
+        });
+}
+
+function barisItem(it) {
+    const nonaktif = it.lunas_kirim;
+    // Item yang sudah terkirim penuh: checkbox dimatikan agar tidak bisa dikirim ulang.
+    const badge = nonaktif
+        ? '<span class="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-bold">Terkirim penuh</span>'
+        : '<span class="text-[10px] text-gray-500">Sisa: <b>' + it.sisa + ' ' + it.satuan + '</b></span>';
+
+    const catatan = it.catatan
+        ? '<div class="text-[10px] text-amber-700 italic mt-0.5"><i class="fa-solid fa-note-sticky mr-1"></i>' + escHtml(it.catatan) + '</div>'
+        : '';
+
+    return '<label class="flex items-center gap-3 p-3 ' + (nonaktif ? 'bg-gray-50' : 'hover:bg-slate-50') + '">'
+         + '<input type="checkbox" class="cek-item w-4 h-4 shrink-0" data-id="' + it.id + '" data-sisa="' + it.sisa + '"'
+         + (nonaktif ? ' disabled' : '') + ' onchange="saatCentang(this)">'
+         + '<div class="flex-1 min-w-0">'
+         + '<div class="text-sm font-semibold ' + (nonaktif ? 'text-gray-400' : 'text-gray-800') + ' truncate">' + escHtml(it.nama_barang) + '</div>'
+         + '<div class="text-[10px] text-gray-500">Dipesan ' + it.qty + ' ' + it.satuan
+         + ' &middot; terkirim ' + it.qty_terkirim + '</div>' + catatan
+         + '</div>'
+         + '<div class="text-right shrink-0">' + badge
+         + '<input type="number" step="0.01" min="0" max="' + it.sisa + '" name="qty_kirim[' + it.id + ']"'
+         + ' class="qty-item w-20 border p-1 rounded text-right text-xs mt-1 block" value="" placeholder="0"'
+         + (nonaktif ? ' disabled' : '') + ' oninput="hitungTotalKirim()">'
+         + '</div></label>';
+}
+
+function escHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// Mencentang item otomatis mengisi qty dengan seluruh sisanya.
+function saatCentang(cb) {
+    const baris = cb.closest('label');
+    const input = baris.querySelector('.qty-item');
+    input.value = cb.checked ? cb.dataset.sisa : '';
+    hitungTotalKirim();
+}
+
+function toggleSemuaItem() {
+    const kotak = document.querySelectorAll('.cek-item:not(:disabled)');
+    const adaYangBelum = Array.from(kotak).some(c => !c.checked);
+    kotak.forEach(c => { c.checked = adaYangBelum; saatCentang(c); });
+}
+
+function hitungTotalKirim() {
+    let jml = 0;
+    document.querySelectorAll('.qty-item:not(:disabled)').forEach(inp => {
+        if (parseFloat(inp.value) > 0) jml++;
+    });
+    document.getElementById('lblTotalKirim').innerText = jml + ' item';
 }
 
 function isiNopolOtomatis() {
