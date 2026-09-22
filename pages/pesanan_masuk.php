@@ -37,10 +37,17 @@ if(isset($_POST['get_item_kirim'])) {
     $id_psn = (int) ($_POST['id_pesanan'] ?? 0);
     $items = [];
 
+    // Surat jalan disimpan sebagai transaksi 'keluar' dengan nomor
+    // "<no_pesanan>/SJ<urutan>", sehingga seluruh pengiriman satu pesanan
+    // bisa ditelusuri lewat pola nomornya tanpa perlu tabel tambahan.
+    $d_psn_aj  = mysqli_fetch_assoc(mysqli_query($conn, "SELECT no_pesanan FROM pesanan WHERE id='$id_psn'"));
+    $no_psn_aj = mysqli_real_escape_string($conn, $d_psn_aj['no_pesanan'] ?? '');
+
     $q_it = mysqli_query($conn, "
         SELECT d.id, d.id_barang, d.qty, d.catatan, b.nama_barang, b.satuan,
-               COALESCE((SELECT SUM(sd.qty_kirim) FROM surat_jalan_detail sd
-                         WHERE sd.pesanan_detail_id = d.id), 0) AS qty_terkirim
+               COALESCE((SELECT SUM(td.qty) FROM transaksi_detail td
+                         WHERE td.barang_id = d.id_barang
+                           AND td.no_faktur LIKE '$no_psn_aj/SJ%'), 0) AS qty_terkirim
         FROM pesanan_detail d
         JOIN barang b ON d.id_barang = b.id
         WHERE d.id_pesanan = '$id_psn'
@@ -75,23 +82,27 @@ if(isset($_POST['buat_surat_jalan'])) {
     $nopol       = mysqli_real_escape_string($conn, $_POST['nopol'] ?? '');
     $kirim       = $_POST['qty_kirim'] ?? [];   // [pesanan_detail_id => qty]
 
-    $d_psn = mysqli_fetch_assoc(mysqli_query($conn, "SELECT no_pesanan, status FROM pesanan WHERE id='$id_psn' AND id_usaha='$id_usaha'"));
+    $d_psn = mysqli_fetch_assoc(mysqli_query($conn, "SELECT no_pesanan, status, pelanggan_id FROM pesanan WHERE id='$id_psn' AND id_usaha='$id_usaha'"));
 
     if(!$d_psn) {
         echo "<script>alert('Pesanan tidak ditemukan.'); window.location='index.php?page=pesanan_masuk';</script>";
     } else {
+        $no_pesanan_safe = mysqli_real_escape_string($conn, $d_psn['no_pesanan']);
+
         // Validasi tiap baris terhadap sisa yang benar-benar belum dikirim,
         // supaya total terkirim tidak pernah melebihi jumlah yang dipesan.
         $baris_sah = [];
+        $total_nilai = 0;
         foreach($kirim as $id_detail => $qty_minta) {
             $id_detail = (int) $id_detail;
             $qty_minta = (float) str_replace(',', '.', $qty_minta);
             if($qty_minta <= 0) continue;
 
             $d_it = mysqli_fetch_assoc(mysqli_query($conn, "
-                SELECT d.id, d.id_barang, d.qty,
-                       COALESCE((SELECT SUM(sd.qty_kirim) FROM surat_jalan_detail sd
-                                 WHERE sd.pesanan_detail_id = d.id), 0) AS qty_terkirim
+                SELECT d.id, d.id_barang, d.qty, d.harga_satuan,
+                       COALESCE((SELECT SUM(td.qty) FROM transaksi_detail td
+                                 WHERE td.barang_id = d.id_barang
+                                   AND td.no_faktur LIKE '$no_pesanan_safe/SJ%'), 0) AS qty_terkirim
                 FROM pesanan_detail d
                 WHERE d.id = '$id_detail' AND d.id_pesanan = '$id_psn'"));
 
@@ -99,28 +110,41 @@ if(isset($_POST['buat_surat_jalan'])) {
             $sisa = (float)$d_it['qty'] - (float)$d_it['qty_terkirim'];
             if($sisa <= 0) continue;
 
+            $qty_kirim = min($qty_minta, $sisa);
+            $harga     = (float) $d_it['harga_satuan'];
+            $d_brg     = mysqli_fetch_assoc(mysqli_query($conn, "SELECT harga_beli FROM barang WHERE id='{$d_it['id_barang']}'"));
+
             $baris_sah[] = [
-                'pesanan_detail_id' => (int) $d_it['id'],
-                'id_barang'         => (int) $d_it['id_barang'],
-                'qty_kirim'         => min($qty_minta, $sisa),
+                'id_barang' => (int) $d_it['id_barang'],
+                'qty_kirim' => $qty_kirim,
+                'harga'     => $harga,
+                'hpp'       => (float) ($d_brg['harga_beli'] ?? 0),
+                'subtotal'  => $harga * $qty_kirim,
             ];
+            $total_nilai += $harga * $qty_kirim;
         }
 
         if(!$baris_sah) {
             echo "<script>alert('Pilih minimal satu item yang masih punya sisa kirim.'); window.location='index.php?page=pesanan_masuk';</script>";
         } else {
-            $no_pesanan_safe = mysqli_real_escape_string($conn, $d_psn['no_pesanan']);
-            $no_sj   = 'SJ-' . date('ymdHis');
-            $user_id_admin = (int) ($_SESSION['user_id'] ?? 0);
+            // Nomor surat jalan berurutan per pesanan: ORD-xxx/SJ1, /SJ2, dst.
+            $n_sj = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) AS n FROM transaksi WHERE no_faktur LIKE '$no_pesanan_safe/SJ%'"));
+            $urut_sj = (int) ($n_sj['n'] ?? 0) + 1;
+            $no_sj   = $d_psn['no_pesanan'] . '/SJ' . $urut_sj;
+            $no_sj_safe = mysqli_real_escape_string($conn, $no_sj);
 
-            $q_sj = "INSERT INTO surat_jalan (id_usaha, no_surat_jalan, id_pesanan, no_pesanan, nama_driver, nopol, user_id)
-                     VALUES ('$id_usaha', '$no_sj', '$id_psn', '$no_pesanan_safe', '$nama_driver', '$nopol', '$user_id_admin')";
+            $user_id_admin = (int) ($_SESSION['user_id'] ?? 0);
+            $pel_id_sj = (int) ($d_psn['pelanggan_id'] ?? 0);
+
+            // Surat jalan disimpan sebagai transaksi 'keluar' (status pending,
+            // belum lunas) agar tampil di menu Cetak Surat Jalan yang sudah ada.
+            $q_sj = "INSERT INTO transaksi (id_usaha, no_faktur, jenis_transaksi, total_transaksi, bayar, status, status_bayar, tanggal, user_id, pelanggan_id, nama_driver, nopol)
+                     VALUES ('$id_usaha', '$no_sj_safe', 'keluar', '$total_nilai', 0, 'pending', 'belum', NOW(), '$user_id_admin', '$pel_id_sj', '$nama_driver', '$nopol')";
 
             if(mysqli_query($conn, $q_sj)) {
-                $sj_id = mysqli_insert_id($conn);
                 foreach($baris_sah as $b) {
-                    mysqli_query($conn, "INSERT INTO surat_jalan_detail (surat_jalan_id, pesanan_detail_id, id_barang, qty_kirim)
-                                         VALUES ('$sj_id', '{$b['pesanan_detail_id']}', '{$b['id_barang']}', '{$b['qty_kirim']}')");
+                    mysqli_query($conn, "INSERT INTO transaksi_detail (no_faktur, barang_id, qty, harga_satuan, hpp, subtotal)
+                                         VALUES ('$no_sj_safe', '{$b['id_barang']}', '{$b['qty_kirim']}', '{$b['harga']}', '{$b['hpp']}', '{$b['subtotal']}')");
                 }
 
                 // Status pesanan naik ke Pengiriman (stok belum dipotong di tahap ini).
@@ -130,7 +154,8 @@ if(isset($_POST['buat_surat_jalan'])) {
                     catat_log($conn, 'Buat Surat Jalan', "Surat jalan $no_sj untuk pesanan {$d_psn['no_pesanan']} (" . count($baris_sah) . " item)");
                 }
 
-                echo "<script>alert('Surat Jalan $no_sj dibuat (" . count($baris_sah) . " item).'); window.open('cetak_surat_jalan.php?sj=$sj_id', '_blank'); window.location='index.php?page=pesanan_masuk';</script>";
+                $no_sj_url = urlencode($no_sj);
+                echo "<script>alert('Surat Jalan $no_sj dibuat (" . count($baris_sah) . " item).'); window.open('cetak_surat_jalan.php?no_faktur=$no_sj_url', '_blank'); window.location='index.php?page=pesanan_masuk';</script>";
             } else {
                 echo "<script>alert('Gagal membuat surat jalan.'); window.location='index.php?page=pesanan_masuk';</script>";
             }

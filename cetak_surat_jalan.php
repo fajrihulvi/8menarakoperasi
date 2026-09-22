@@ -9,16 +9,8 @@ if(file_exists('config/koneksi.php')) {
     else die("Error: File koneksi.php tidak ditemukan!");
 }
 
-// 2a. Mode surat jalan bertahap: ?sj=<id> mencetak hanya item pada surat jalan itu.
-$sj_id = (int) ($_GET['sj'] ?? 0);
-$sj_data = null;
-if($sj_id > 0) {
-    $sj_data = mysqli_fetch_assoc(mysqli_query($conn, "SELECT * FROM surat_jalan WHERE id='$sj_id'"));
-    if(!$sj_data) die("Surat jalan tidak ditemukan");
-}
-
-// 2b. Ambil Parameter Faktur (Support GET 'faktur' atau 'no_faktur')
-$faktur = $sj_data['no_pesanan'] ?? ($_GET['faktur'] ?? $_GET['no_faktur'] ?? '');
+// 2. Ambil Parameter Faktur (Support GET 'faktur' atau 'no_faktur')
+$faktur = $_GET['faktur'] ?? $_GET['no_faktur'] ?? '';
 
 if(empty($faktur)) die("Faktur tidak ditemukan");
 
@@ -48,8 +40,10 @@ $trx = mysqli_fetch_assoc($query_run);
 
 // Pesanan yang baru tahap Pengiriman belum punya baris transaksi.
 // Ambil identitasnya langsung dari tabel pesanan agar surat jalan tetap bisa dicetak.
+// Nomor surat jalan bertahap berbentuk "<no_pesanan>/SJn" -> ambil pesanan induknya.
 if (!$trx) {
-    $faktur_safe = mysqli_real_escape_string($conn, $faktur);
+    $no_induk = preg_replace('#/SJ\d+$#', '', $faktur);
+    $faktur_safe = mysqli_real_escape_string($conn, $no_induk);
     $trx = mysqli_fetch_assoc(mysqli_query($conn, "
         SELECT ps.no_pesanan AS no_faktur, ps.tanggal, ps.total_bayar AS total_transaksi,
                ps.pelanggan_id, ps.nama_driver, ps.nopol, ps.lokasi_kirim,
@@ -62,12 +56,6 @@ if (!$trx) {
         WHERE ps.no_pesanan = '$faktur_safe'"));
 
     if (!$trx) { die("Data pesanan tidak ditemukan"); }
-}
-
-// Surat jalan bertahap memakai driver/nopol yang tercatat saat surat itu dibuat.
-if ($sj_data) {
-    if (!empty($sj_data['nama_driver'])) { $trx['nama_driver'] = $sj_data['nama_driver']; }
-    if (!empty($sj_data['nopol']))       { $trx['nopol']       = $sj_data['nopol']; }
 }
 
 // --- LOGIKA PRIORITAS DATA (SINKRONISASI) ---
@@ -92,7 +80,10 @@ $info = mysqli_fetch_assoc(mysqli_query($conn, "SELECT * FROM pengaturan WHERE i
 
 // 5. Ubah Format Nomor: INV/... menjadi SJ/...
 // Surat jalan bertahap punya nomor sendiri; selain itu turunkan dari nomor faktur.
-$no_surat = $sj_data['no_surat_jalan'] ?? str_replace(["INV", "TRX", "ORD"], "SJ", $faktur);
+// Nomor surat jalan bertahap ("ORD-xxx/SJ1") dipakai apa adanya.
+$no_surat = preg_match('#/SJ\d+$#', $faktur)
+    ? $faktur
+    : str_replace(["INV", "TRX", "ORD"], "SJ", $faktur);
 
 // 6. Fungsi Format Tanggal Indonesia
 function tgl_indo($tanggal){
@@ -215,23 +206,12 @@ function tgl_indo($tanggal){
             <tbody>
                 <?php
                 $no = 1;
-                if ($sj_data) {
-                    // Hanya item yang dibawa pada surat jalan ini.
-                    $q_detail = mysqli_query($conn, "
-                        SELECT sd.qty_kirim AS qty, b.nama_barang, b.satuan
-                        FROM surat_jalan_detail sd
-                        JOIN barang b ON sd.id_barang = b.id
-                        WHERE sd.surat_jalan_id = '$sj_id'
-                        ORDER BY b.nama_barang ASC
-                    ");
-                } else {
-                    $q_detail = mysqli_query($conn, "
-                        SELECT td.qty, b.nama_barang, b.satuan
-                        FROM transaksi_detail td
-                        JOIN barang b ON td.barang_id = b.id
-                        WHERE td.no_faktur='$faktur'
-                    ");
-                }
+                $q_detail = mysqli_query($conn, "
+                    SELECT td.qty, b.nama_barang, b.satuan
+                    FROM transaksi_detail td
+                    JOIN barang b ON td.barang_id = b.id
+                    WHERE td.no_faktur='$faktur'
+                ");
 
                 while($d = mysqli_fetch_assoc($q_detail)):
                 ?>
