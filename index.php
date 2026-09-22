@@ -151,7 +151,11 @@ $initial_last_id = $d_init['max_id'] ?? 0;
 
         <main class="flex-1 md:ml-64 transition-all duration-300 w-full relative overflow-x-hidden z-0">
             <header class="flex justify-between items-center mb-8 sticky top-0 z-30 bg-[#f8fafc]/90 backdrop-blur-sm px-4 md:px-8 py-4 border-b border-transparent hover:border-slate-200 transition-colors">
-                <div>
+                <div class="flex items-center gap-3">
+                    <button id="tombolToggleSidebar" onclick="toggleSidebarDesktop()" title="Sembunyikan menu samping"
+                            class="hidden md:flex w-9 h-9 rounded-full bg-white border border-slate-200 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 items-center justify-center transition shadow-sm shrink-0">
+                        <i id="ikonToggleSidebar" class="fa-solid fa-angles-left text-base"></i>
+                    </button>
                     <p class="text-sm font-bold text-slate-500 flex items-center gap-2">
                         <i class="fa-regular fa-calendar"></i> <?= date('l, d F Y') ?>
                     </p>

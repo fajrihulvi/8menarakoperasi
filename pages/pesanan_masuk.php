@@ -355,6 +355,9 @@ if(isset($_POST['export_excel'])) {
                                     <span class="break-words">
                                         <?= htmlspecialchars($d['nama_barang'], ENT_QUOTES, 'UTF-8') ?>
                                         <b class="text-gray-800 whitespace-nowrap">(<?= (float)$d['qty'] ?> <?= htmlspecialchars($d['satuan'], ENT_QUOTES, 'UTF-8') ?>)</b>
+                                        <?php if(trim((string)($d['catatan'] ?? '')) !== ''): ?>
+                                            <span class="block text-[10px] text-amber-700 italic"><i class="fa-solid fa-note-sticky mr-1"></i><?= htmlspecialchars($d['catatan'], ENT_QUOTES, 'UTF-8') ?></span>
+                                        <?php endif; ?>
                                     </span>
                                 </li>
                             <?php endforeach; ?>

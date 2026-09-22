@@ -81,6 +81,17 @@ $menu_driver    = ['driver_panel']; // Input SJ & List SJ driver numpang di menu
     .arrow-icon { transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
     .submenu-container { overflow: hidden; transition: max-height 0.3s ease-in-out; }
 
+    /* MODE SEMBUNYIKAN SIDEBAR (DESKTOP) */
+    /* Sidebar digeser keluar layar dan konten utama melebar penuh. */
+    @media (min-width: 768px) {
+        body.sidebar-tersembunyi #sidebar {
+            transform: translateX(-100%);
+        }
+        body.sidebar-tersembunyi main {
+            margin-left: 0 !important;
+        }
+    }
+
     /* POPUP iOS */
     #ios-install-prompt {
         position: fixed; bottom: 0; left: 0; right: 0;
@@ -90,6 +101,17 @@ $menu_driver    = ['driver_panel']; // Input SJ & List SJ driver numpang di menu
         border-radius: 20px 20px 0 0;
     }
 </style>
+
+<script>
+// Terapkan preferensi sidebar sedini mungkin agar tidak berkedip saat halaman dimuat.
+(function () {
+    try {
+        if (localStorage.getItem('sidebarTersembunyi') === '1') {
+            document.body.classList.add('sidebar-tersembunyi');
+        }
+    } catch (e) {}
+})();
+</script>
 
 <!-- Mobile Header -->
 <div class="md:hidden fixed top-0 left-0 w-full bg-white/90 backdrop-blur-md border-b border-slate-200 px-4 py-3 z-40 flex items-center justify-between shadow-sm">
@@ -335,6 +357,32 @@ function toggleSidebar() {
         overlay.classList.add('hidden');
     }
 }
+
+// Logika Sembunyikan/Tampilkan Sidebar (Mode Desktop)
+// Pilihan terakhir diingat browser agar tidak perlu klik ulang tiap pindah halaman.
+function toggleSidebarDesktop() {
+    const tersembunyi = document.body.classList.toggle('sidebar-tersembunyi');
+    try { localStorage.setItem('sidebarTersembunyi', tersembunyi ? '1' : '0'); } catch (e) {}
+    perbaruiIkonToggle(tersembunyi);
+}
+
+function perbaruiIkonToggle(tersembunyi) {
+    const ikon = document.getElementById('ikonToggleSidebar');
+    const tombol = document.getElementById('tombolToggleSidebar');
+    if (ikon) {
+        ikon.className = tersembunyi
+            ? 'fa-solid fa-angles-right text-base'
+            : 'fa-solid fa-angles-left text-base';
+    }
+    if (tombol) {
+        tombol.title = tersembunyi ? 'Tampilkan menu samping' : 'Sembunyikan menu samping';
+    }
+}
+
+// Samakan arah ikon dengan kondisi sidebar yang tersimpan.
+document.addEventListener('DOMContentLoaded', function () {
+    perbaruiIkonToggle(document.body.classList.contains('sidebar-tersembunyi'));
+});
 
 // Logika Deteksi Install iOS
 const isIos = () => {

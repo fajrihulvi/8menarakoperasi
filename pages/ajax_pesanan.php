@@ -48,10 +48,17 @@ if(isset($_POST['get_detail_pesanan'])) {
     
     if(count($rows) > 0) {
         foreach($rows as $r) {
+            $catatan_item = trim((string)($r['catatan'] ?? ''));
+            $baris_catatan = $catatan_item !== ''
+                ? "<div class='text-[11px] text-amber-700 mt-1'><i class='fa-solid fa-note-sticky mr-1'></i>"
+                  . htmlspecialchars($catatan_item, ENT_QUOTES, 'UTF-8') . "</div>"
+                : '';
+
             echo "<tr>
                     <td class='p-3'>
                         <div class='font-medium text-slate-700'>{$r['nama_barang']}</div>
                         <div class='text-[10px] text-slate-400'>ID Detail: #{$r['id']}</div>
+                        $baris_catatan
                     </td>
                     <td class='p-3 text-center font-bold'>".(float)$r['qty']." <span class='text-gray-400 font-normal'>{$r['satuan']}</span></td>";
             
