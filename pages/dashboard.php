@@ -226,7 +226,7 @@ if (!function_exists('format_rupiah')) {
                             $q_his = mysqli_query($conn, "SELECT * FROM pesanan WHERE user_id='$user_id' ORDER BY id DESC LIMIT 5");
                             if(mysqli_num_rows($q_his) > 0):
                                 while($r = mysqli_fetch_assoc($q_his)):
-                                    $color = match($r['status']) { 'Pending'=>'bg-slate-200 text-slate-700','Persiapan'=>'bg-amber-200 text-amber-800','Pengiriman'=>'bg-blue-200 text-blue-800','Selesai'=>'bg-emerald-200 text-emerald-800', default=>'bg-rose-200 text-rose-800' };
+                                    $color = match($r['status']) { 'Pending'=>'bg-slate-200 text-slate-700','Persiapan'=>'bg-amber-200 text-amber-800','Pengiriman'=>'bg-blue-200 text-blue-800','Diterima'=>'bg-teal-200 text-teal-800','Selesai'=>'bg-emerald-200 text-emerald-800', default=>'bg-rose-200 text-rose-800' };
                             ?>
                             <tr class="hover:bg-white/60 transition-colors duration-300">
                                 <td class="p-4 font-bold text-indigo-700 text-base"><?= htmlspecialchars($r['no_pesanan'], ENT_QUOTES, 'UTF-8') ?></td>

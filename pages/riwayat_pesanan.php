@@ -74,10 +74,28 @@ if (isset($_GET['terima_pesanan'])) {
     if($is_special_driver) $is_authorized = true;
 
     if ($is_authorized) {
-        $update = mysqli_query($conn, "UPDATE pesanan SET status='Selesai' WHERE id='$id_pesanan'");
+        // Konfirmasi penerimaan barang: stok dipotong & invoice terbit (BELUM lunas).
+        // Status "Selesai" sengaja tidak dipakai di sini karena berarti sudah lunas.
+        $d_psn_now = mysqli_fetch_assoc(mysqli_query($conn, "SELECT no_pesanan, status FROM pesanan WHERE id='$id_pesanan'"));
+        $sudah_keluar = in_array(strtolower(trim($d_psn_now['status'] ?? '')), ['diterima', 'selesai'], true);
+
+        $update = mysqli_query($conn, "UPDATE pesanan SET status='Diterima' WHERE id='$id_pesanan'");
+
         if($update) {
+            // Potong stok hanya bila sebelumnya belum pernah dipotong.
+            if (!$sudah_keluar) {
+                $no_psn_safe = mysqli_real_escape_string($conn, $d_psn_now['no_pesanan'] ?? '');
+                $q_it = mysqli_query($conn, "SELECT id_barang, qty FROM pesanan_detail WHERE id_pesanan='$id_pesanan'");
+                while($it = mysqli_fetch_assoc($q_it)) {
+                    $qty_it = (float)$it['qty'];
+                    mysqli_query($conn, "UPDATE barang SET stok = stok - $qty_it WHERE id='{$it['id_barang']}'");
+                }
+                // Tandai transaksi selesai agar invoice & retur bisa diproses.
+                mysqli_query($conn, "UPDATE transaksi SET status='selesai' WHERE no_faktur='$no_psn_safe'");
+            }
+
             echo "<script>
-                alert('Terima kasih! Pesanan telah diselesaikan.'); 
+                alert('Terima kasih! Pesanan ditandai sudah DITERIMA.\\nJika ada barang bermasalah, Anda bisa mengajukan retur.');
                 window.location='index.php?page=riwayat_pesanan';
             </script>";
         } else {
@@ -216,6 +234,7 @@ if (isset($_POST['export_excel'])) {
                         'Pending' => 'bg-gray-100 text-gray-600',
                         'Persiapan' => 'bg-yellow-100 text-yellow-700',
                         'Pengiriman' => 'bg-blue-100 text-blue-700',
+                        'Diterima' => 'bg-teal-100 text-teal-700',
                         'Selesai' => 'bg-green-100 text-green-700',
                         default => 'bg-red-100 text-red-700'
                     };

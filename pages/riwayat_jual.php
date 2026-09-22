@@ -25,8 +25,21 @@ if(isset($_POST['ubah_status_order'])) {
 
             // Proses hanya jika statusnya benar-benar diubah
             if($status_lama !== $status_baru) {
+                // "Diterima" & "Selesai" sama-sama berarti barang sudah keluar gudang.
+                // Di tabel transaksi keduanya disimpan sebagai 'selesai'; pembeda
+                // lunas/belum ada pada kolom status_bayar.
+                $status_keluar = ['diterima', 'selesai'];
+                $keluar_lama = in_array($status_lama, $status_keluar, true);
+                $keluar_baru = in_array($status_baru, $status_keluar, true);
+                $status_trx  = $keluar_baru ? 'selesai' : ($status_baru === 'batal' ? 'pending' : $status_baru);
+
                 // 2. Update Status Transaksi Utama
-                mysqli_query($conn, "UPDATE transaksi SET status='$status_baru' WHERE no_faktur='$no_faktur' AND id_usaha='$id_usaha'");
+                mysqli_query($conn, "UPDATE transaksi SET status='$status_trx' WHERE no_faktur='$no_faktur' AND id_usaha='$id_usaha'");
+
+                // Memilih "Selesai" sekaligus menandai invoice LUNAS.
+                if ($status_baru === 'selesai') {
+                    mysqli_query($conn, "UPDATE transaksi SET status_bayar='lunas', tgl_lunas=NOW() WHERE no_faktur='$no_faktur' AND id_usaha='$id_usaha'");
+                }
 
                 // 3. SINKRONISASI STOK GUDANG
                 $q_detail = mysqli_query($conn, "SELECT barang_id, qty FROM transaksi_detail WHERE no_faktur='$no_faktur'");
@@ -34,18 +47,19 @@ if(isset($_POST['ubah_status_order'])) {
                     $id_brg = $d['barang_id'];
                     $qty = (float)$d['qty'];
 
-                    // A. Jika diubah menjadi SELESAI -> POTONG STOK
-                    if ($status_baru === 'selesai' && $status_lama !== 'selesai') {
+                    // A. Barang mulai keluar gudang -> POTONG STOK
+                    if ($keluar_baru && !$keluar_lama) {
                         mysqli_query($conn, "UPDATE barang SET stok = stok - $qty WHERE id='$id_brg'");
                     }
-                    // B. Jika DARI SELESAI menjadi yang lain (Batal/Pending) -> KEMBALIKAN STOK
-                    elseif ($status_lama === 'selesai' && $status_baru !== 'selesai') {
+                    // B. Dibatalkan/dimundurkan -> KEMBALIKAN STOK
+                    elseif ($keluar_lama && !$keluar_baru) {
                         mysqli_query($conn, "UPDATE barang SET stok = stok + $qty WHERE id='$id_brg'");
                     }
                 }
 
                 // 4. Sinkronisasi ganda ke tabel pesanan (Jika order berasal dari pelanggan)
-                mysqli_query($conn, "UPDATE pesanan SET status='$status_baru' WHERE no_pesanan='$no_faktur'");
+                $status_pesanan = ucfirst($status_baru);
+                mysqli_query($conn, "UPDATE pesanan SET status='$status_pesanan' WHERE no_pesanan='$no_faktur'");
 
                 if(function_exists('catat_log')) {
                     catat_log($conn, 'Update Status Order', "Ubah status faktur $no_faktur dari ".strtoupper($status_lama)." menjadi ".strtoupper($status_baru));
@@ -329,6 +343,7 @@ if(isset($_POST['export_excel'])) {
                     $status_order_lower = strtolower(trim($row['status']));
                     $color_order = 'bg-gray-200 text-gray-700';
                     if($status_order_lower == 'selesai') $color_order = 'bg-green-100 text-green-700';
+                    elseif($status_order_lower == 'diterima') $color_order = 'bg-teal-100 text-teal-700';
                     elseif($status_order_lower == 'batal') $color_order = 'bg-red-100 text-red-700';
                     elseif($status_order_lower == 'pengiriman') $color_order = 'bg-blue-100 text-blue-700';
                     elseif($status_order_lower == 'persiapan') $color_order = 'bg-yellow-100 text-yellow-700';
@@ -352,6 +367,7 @@ if(isset($_POST['export_excel'])) {
                                 <option value="pending" <?= $status_order_lower == 'pending' ? 'selected' : '' ?> class="bg-white text-gray-700">PENDING</option>
                                 <option value="persiapan" <?= $status_order_lower == 'persiapan' ? 'selected' : '' ?> class="bg-white text-gray-700">PERSIAPAN</option>
                                 <option value="pengiriman" <?= $status_order_lower == 'pengiriman' ? 'selected' : '' ?> class="bg-white text-gray-700">PENGIRIMAN</option>
+                                <option value="diterima" <?= $status_order_lower == 'diterima' ? 'selected' : '' ?> class="bg-white text-gray-700">DITERIMA</option>
                                 <option value="selesai" <?= $status_order_lower == 'selesai' ? 'selected' : '' ?> class="bg-white text-gray-700">SELESAI</option>
                                 <option value="batal" <?= $status_order_lower == 'batal' ? 'selected' : '' ?> class="bg-white text-gray-700">BATAL</option>
                             </select>
@@ -391,12 +407,12 @@ if(isset($_POST['export_excel'])) {
                             <i class="fa-solid fa-print"></i>
                         </a>
 
-                        <?php if($status_order_lower == 'selesai'): ?>
+                        <?php if(in_array($status_order_lower, ['diterima', 'selesai'], true)): ?>
                             <a href="cetak_invoice.php?no_faktur=<?= $row['no_faktur'] ?>" target="_blank" class="bg-purple-600 text-white px-3 py-1 rounded hover:bg-purple-700 text-xs" title="Cetak Invoice A4">
                                 <i class="fa-solid fa-file-invoice"></i>
                             </a>
                         <?php else: ?>
-                            <button onclick="alert('Pesanan belum Selesai. Invoice belum bisa dicetak.')" class="bg-gray-400 text-white px-3 py-1 rounded cursor-not-allowed text-xs" title="Cetak Invoice (Terkunci)">
+                            <button onclick="alert('Barang belum diterima pelanggan. Invoice belum bisa dicetak.')" class="bg-gray-400 text-white px-3 py-1 rounded cursor-not-allowed text-xs" title="Cetak Invoice (Terkunci)">
                                 <i class="fa-solid fa-file-invoice"></i>
                             </button>
                         <?php endif; ?>

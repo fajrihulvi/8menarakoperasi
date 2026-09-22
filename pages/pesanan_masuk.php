@@ -68,6 +68,13 @@ if(isset($_POST['update_pesanan'])) {
         $alamat_real = $d_lama['alamat'];
     }
 
+    // Status yang menandakan barang sudah keluar gudang (stok dipotong).
+    // "Diterima" = barang sampai ke pelanggan tapi belum lunas.
+    // "Selesai"  = barang sampai DAN sudah lunas.
+    $status_potong_stok = ['diterima', 'selesai'];
+    $stok_terpotong_lama = in_array($status_lama, $status_potong_stok, true);
+    $stok_terpotong_baru = in_array($status_baru_lower, $status_potong_stok, true);
+
     // MESIN HITUNG ULANG HARGA & MANAJEMEN STOK STRICT
     $items_query = mysqli_query($conn, "SELECT * FROM pesanan_detail WHERE id_pesanan='$id_pesanan'");
     $new_total = 0;
@@ -87,10 +94,12 @@ if(isset($_POST['update_pesanan'])) {
         $new_total += $subtotal;
 
         // POTONG STOK STRICT
-        if ($status_baru_lower === 'selesai' && $status_lama !== 'selesai') {
+        // Hanya bergerak saat melintasi batas "sudah keluar gudang", sehingga
+        // perpindahan Diterima -> Selesai tidak memotong stok dua kali.
+        if ($stok_terpotong_baru && !$stok_terpotong_lama) {
             mysqli_query($conn, "UPDATE barang SET stok = stok - $qty WHERE id = '$id_brg'");
-        } 
-        elseif ($status_lama === 'selesai' && $status_baru_lower !== 'selesai') {
+        }
+        elseif ($stok_terpotong_lama && !$stok_terpotong_baru) {
             mysqli_query($conn, "UPDATE barang SET stok = stok + $qty WHERE id = '$id_brg'");
         }
         
@@ -103,17 +112,19 @@ if(isset($_POST['update_pesanan'])) {
     // -------------------------------------------------------------------
     // PERBAIKAN: SINKRONISASI KE TABEL TRANSAKSI (TIDAK OTOMATIS LUNAS)
     // -------------------------------------------------------------------
-    $status_trx_baru = ($status_baru_lower === 'selesai') ? 'selesai' : 'pending'; 
+    // Transaksi dianggap 'selesai' begitu barang keluar gudang (Diterima / Selesai),
+    // sehingga invoice & retur sudah bisa diproses walau belum lunas.
+    $status_trx_baru = $stok_terpotong_baru ? 'selesai' : 'pending';
 
     $cek_trx = mysqli_query($conn, "SELECT id, status_bayar, bayar FROM transaksi WHERE no_faktur='$no_pesanan'");
-    
+
     if(mysqli_num_rows($cek_trx) == 0) {
         // JIKA INVOICE BELUM PERNAH DIBUAT (BUAT BARU)
-        $user_kasir_id = $_SESSION['user_id'] ?? 0; 
-        
-        // SETING WAJIB: SELALU BELUM LUNAS DAN BAYAR 0
-        $status_bayar_baru = 'belum'; 
-        $nominal_bayar = 0; 
+        $user_kasir_id = $_SESSION['user_id'] ?? 0;
+
+        // Lunas hanya bila status "Selesai"; "Diterima" tetap belum lunas.
+        $status_bayar_baru = ($status_baru_lower === 'selesai') ? 'lunas' : 'belum';
+        $nominal_bayar = ($status_baru_lower === 'selesai') ? $new_total : 0;
 
         $q_trx = "INSERT INTO transaksi (id_usaha, no_faktur, jenis_transaksi, total_transaksi, bayar, status, status_bayar, tanggal, user_id, pelanggan_id, nama_driver, nopol) 
                   VALUES ('$id_usaha', '$no_pesanan', 'keluar', '$new_total', '$nominal_bayar', '$status_trx_baru', '$status_bayar_baru', NOW(), '$user_kasir_id', '$pelanggan_id_real', '$nama_driver', '$nopol')";
@@ -125,14 +136,20 @@ if(isset($_POST['update_pesanan'])) {
             }
         }
     } else {
-        // JIKA SUDAH ADA, JANGAN MERUBAH STATUS BAYARNYA
-        // Biarkan status bayarnya seperti apa adanya (menghindari mereset jika admin sudah pelunasan manual)
-        mysqli_query($conn, "UPDATE transaksi SET 
-                             status='$status_trx_baru', 
-                             nama_driver='$nama_driver', 
-                             nopol='$nopol', 
-                             pelanggan_id='$pelanggan_id_real', 
-                             total_transaksi='$new_total' 
+        // Status bayar dibiarkan apa adanya agar pelunasan manual admin tidak ter-reset.
+        // Pengecualian: memilih "Selesai" berarti sekaligus menandai LUNAS.
+        $set_bayar = '';
+        if ($status_baru_lower === 'selesai') {
+            $set_bayar = ", status_bayar='lunas', bayar='$new_total', tgl_lunas=NOW()";
+        }
+
+        mysqli_query($conn, "UPDATE transaksi SET
+                             status='$status_trx_baru',
+                             nama_driver='$nama_driver',
+                             nopol='$nopol',
+                             pelanggan_id='$pelanggan_id_real',
+                             total_transaksi='$new_total'
+                             $set_bayar
                              WHERE no_faktur='$no_pesanan'");
                              
         mysqli_query($conn, "DELETE FROM transaksi_detail WHERE no_faktur='$no_pesanan'");
@@ -145,8 +162,10 @@ if(isset($_POST['update_pesanan'])) {
     // Notifikasi
     if($status_baru_lower == 'pengiriman') {
         echo "<script>alert('Pesanan diproses ke Pengiriman!\\nSurat Jalan otomatis dibuat di riwayat tanpa memotong stok.'); window.open('cetak_surat_jalan.php?no_faktur=$no_pesanan', '_blank'); window.location='index.php?page=pesanan_masuk';</script>";
+    } elseif($status_baru_lower == 'diterima') {
+        echo "<script>alert('Pesanan DITERIMA pelanggan!\\nStok telah dipotong dan invoice diterbitkan dengan status BELUM LUNAS.\\nPelanggan kini bisa mengajukan retur barang.'); window.location='index.php?page=pesanan_masuk';</script>";
     } elseif($status_baru_lower == 'selesai') {
-        echo "<script>alert('Pesanan BERHASIL SELESAI!\\nInvoice otomatis diterbitkan dengan status BELUM LUNAS.\\nStok telah resmi dipotong.'); window.location='index.php?page=pesanan_masuk';</script>";
+        echo "<script>alert('Pesanan SELESAI!\\nStok dipotong dan invoice ditandai LUNAS.'); window.location='index.php?page=pesanan_masuk';</script>";
     } else {
         echo "<script>alert('Status Pesanan Diperbarui!'); window.location='index.php?page=pesanan_masuk';</script>";
     }
@@ -225,7 +244,7 @@ if(isset($_POST['export_excel'])) {
     <?php
     $pms = trim((string)($_GET['status'] ?? ''));
     $sel_status = '<select name="status" class="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"><option value="">-- Semua Status --</option>';
-    foreach (['Pending','Persiapan','Pengiriman','Selesai','Batal'] as $st) {
+    foreach (['Pending','Persiapan','Pengiriman','Diterima','Selesai','Batal'] as $st) {
         $sel_status .= '<option value="' . $st . '"' . ($pms === $st ? ' selected' : '') . '>' . $st . '</option>';
     }
     $sel_status .= '</select>';
@@ -310,7 +329,7 @@ if(isset($_POST['export_excel'])) {
                 if(!$pm_rows) { echo "<tr><td colspan='6' class='p-5 text-center text-gray-400'>Belum ada pesanan masuk.</td></tr>"; }
 
                 foreach($pm_rows as $row):
-                    $color = match($row['status']) { 'Pending'=>'bg-gray-200','Persiapan'=>'bg-yellow-100','Pengiriman'=>'bg-blue-100','Selesai'=>'bg-green-100','Batal'=>'bg-red-100', default=>'bg-gray-200' };
+                    $color = match($row['status']) { 'Pending'=>'bg-gray-200','Persiapan'=>'bg-yellow-100','Pengiriman'=>'bg-blue-100','Diterima'=>'bg-teal-100','Selesai'=>'bg-green-100','Batal'=>'bg-red-100', default=>'bg-gray-200' };
                     
                     $pelanggan_id_display = $row['u_pelanggan_id'] > 0 ? $row['u_pelanggan_id'] : $row['pelanggan_id'];
                     $nama_dapur_display = $row['nama_pelanggan'];
@@ -443,7 +462,8 @@ if(isset($_POST['export_excel'])) {
                     <option value="Pending">Pending</option>
                     <option value="Persiapan">Persiapan</option>
                     <option value="Pengiriman">Pengiriman (Buat Surat Jalan)</option>
-                    <option value="Selesai">Selesai (Potong Stok & Belum Lunas)</option>
+                    <option value="Diterima">Diterima (Potong Stok &amp; Belum Lunas)</option>
+                    <option value="Selesai">Selesai (Potong Stok &amp; Lunas)</option>
                     <option value="Batal">Batal</option>
                 </select>
             </div>
