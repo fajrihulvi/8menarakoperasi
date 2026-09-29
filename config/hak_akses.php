@@ -208,11 +208,11 @@ $PETA_AKSI = [
         'hapus'  => [],
     ],
 
-    // Pesanan Masuk: PO boleh proses, Gudang hanya melihat
+    // Pesanan Masuk: PO boleh proses; Gudang akses penuh (proses, surat jalan, hapus)
     'pesanan_masuk' => [
-        'tambah' => [],
-        'edit'   => ['po'],
-        'hapus'  => [],
+        'tambah' => ['gudang'],
+        'edit'   => ['po', 'gudang'],
+        'hapus'  => ['gudang'],
     ],
 
     // Riwayat & Invoice: Accounting boleh edit invoice TAPI bukan quantity
