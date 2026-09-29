@@ -31,12 +31,23 @@ wajib_akses('list_surat_jalan');
                 if (session_status() == PHP_SESSION_NONE) { session_start(); }
                 $id_usaha = $_SESSION['id_usaha']; 
 
-                // Query tetap sama seperti kode Anda
+                // Nama pelanggan diambil berlapis, karena sebagian transaksi lama
+                // punya pelanggan_id = 0 sehingga JOIN langsung menghasilkan kosong:
+                //   1) tabel pelanggan lewat transaksi.pelanggan_id
+                //   2) profil dapur milik akun pemesan (users.pelanggan_id)
+                //   3) nama yang tersimpan di pesanan
+                // Nomor SJ bertahap berbentuk "ORD-xxx/SJn", jadi penautan ke
+                // pesanan memakai bagian sebelum "/".
                 $query = mysqli_query($conn, "
-                    SELECT t.*, p.nama_pelanggan, p.alamat as alamat_pelanggan 
-                    FROM transaksi t 
-                    LEFT JOIN pelanggan p ON t.pelanggan_id = p.id 
-                    WHERE t.jenis_transaksi = 'keluar' 
+                    SELECT t.*,
+                           COALESCE(NULLIF(p.nama_pelanggan,''), NULLIF(pu.nama_pelanggan,''), NULLIF(ps.nama_pelanggan,'')) AS nama_pelanggan,
+                           COALESCE(NULLIF(p.alamat,''), NULLIF(pu.alamat,''), NULLIF(ps.alamat,'')) AS alamat_pelanggan
+                    FROM transaksi t
+                    LEFT JOIN pelanggan p ON t.pelanggan_id = p.id
+                    LEFT JOIN pesanan ps ON ps.no_pesanan = SUBSTRING_INDEX(t.no_faktur, '/', 1)
+                    LEFT JOIN users  u  ON ps.user_id = u.id
+                    LEFT JOIN pelanggan pu ON u.pelanggan_id = pu.id
+                    WHERE t.jenis_transaksi = 'keluar'
                     AND t.id_usaha = '$id_usaha'
                     ORDER BY t.tanggal DESC
                 ");
