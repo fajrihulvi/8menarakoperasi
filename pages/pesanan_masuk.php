@@ -89,8 +89,9 @@ if(isset($_POST['buat_surat_jalan'])) {
     } else {
         $no_pesanan_safe = mysqli_real_escape_string($conn, $d_psn['no_pesanan']);
 
-        // Validasi tiap baris terhadap sisa yang benar-benar belum dikirim,
-        // supaya total terkirim tidak pernah melebihi jumlah yang dipesan.
+        // Qty kirim bebas (tidak dibatasi sisa pesanan), karena di lapangan
+        // pengiriman bisa melebihi/berbeda dari jumlah yang dipesan.
+        // Yang tetap dijaga: item harus benar milik pesanan ini & qty > 0.
         $baris_sah = [];
         $total_nilai = 0;
         foreach($kirim as $id_detail => $qty_minta) {
@@ -99,18 +100,13 @@ if(isset($_POST['buat_surat_jalan'])) {
             if($qty_minta <= 0) continue;
 
             $d_it = mysqli_fetch_assoc(mysqli_query($conn, "
-                SELECT d.id, d.id_barang, d.qty, d.harga_satuan,
-                       COALESCE((SELECT SUM(td.qty) FROM transaksi_detail td
-                                 WHERE td.barang_id = d.id_barang
-                                   AND td.no_faktur LIKE '$no_pesanan_safe/SJ%'), 0) AS qty_terkirim
+                SELECT d.id, d.id_barang, d.qty, d.harga_satuan
                 FROM pesanan_detail d
                 WHERE d.id = '$id_detail' AND d.id_pesanan = '$id_psn'"));
 
             if(!$d_it) continue;
-            $sisa = (float)$d_it['qty'] - (float)$d_it['qty_terkirim'];
-            if($sisa <= 0) continue;
 
-            $qty_kirim = min($qty_minta, $sisa);
+            $qty_kirim = $qty_minta;
             $harga     = (float) $d_it['harga_satuan'];
             $d_brg     = mysqli_fetch_assoc(mysqli_query($conn, "SELECT harga_beli FROM barang WHERE id='{$d_it['id_barang']}'"));
 
@@ -125,7 +121,7 @@ if(isset($_POST['buat_surat_jalan'])) {
         }
 
         if(!$baris_sah) {
-            echo "<script>alert('Pilih minimal satu item yang masih punya sisa kirim.'); window.location='index.php?page=pesanan_masuk';</script>";
+            echo "<script>alert('Isi qty kirim minimal satu item.'); window.location='index.php?page=pesanan_masuk';</script>";
         } else {
             // Nomor surat jalan berurutan per pesanan: ORD-xxx/SJ1, /SJ2, dst.
             $n_sj = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) AS n FROM transaksi WHERE no_faktur LIKE '$no_pesanan_safe/SJ%'"));
@@ -619,7 +615,7 @@ if(isset($_POST['export_excel'])) {
                     <span id="lblTotalKirim" class="text-sm font-bold text-indigo-800">0 item</span>
                 </div>
                 <p id="pesanSemuaTerkirim" class="hidden mt-2 text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2">
-                    <i class="fa-solid fa-circle-check mr-1"></i> Semua item pesanan ini sudah dibuatkan surat jalan.
+                    <i class="fa-solid fa-circle-check mr-1"></i> Semua item sudah dibuatkan surat jalan. Anda masih bisa mengirim tambahan bila diperlukan.
                 </p>
             </div>
 
@@ -693,11 +689,10 @@ function muatItemKirim() {
                 return;
             }
 
+            // Info saja: seluruh item sudah pernah dikirim penuh. Tombol tetap
+            // aktif karena pengiriman tambahan/ulang masih diizinkan.
             const semuaTerkirim = d.items.every(it => it.lunas_kirim);
             document.getElementById('pesanSemuaTerkirim').classList.toggle('hidden', !semuaTerkirim);
-            document.getElementById('btnBuatSJ').disabled = semuaTerkirim;
-            document.getElementById('btnBuatSJ').classList.toggle('opacity-50', semuaTerkirim);
-            document.getElementById('btnBuatSJ').classList.toggle('cursor-not-allowed', semuaTerkirim);
 
             wadah.innerHTML = d.items.map(it => barisItem(it)).join('');
             hitungTotalKirim();
@@ -708,9 +703,10 @@ function muatItemKirim() {
 }
 
 function barisItem(it) {
-    const nonaktif = it.lunas_kirim;
-    // Item yang sudah terkirim penuh: checkbox dimatikan agar tidak bisa dikirim ulang.
-    const badge = nonaktif
+    // Qty kirim tidak dibatasi: item yang sudah terkirim penuh pun masih bisa
+    // dikirim lagi (kirim ulang / tambahan). Sisa hanya info, bukan pengunci.
+    const penuh = it.lunas_kirim;
+    const badge = penuh
         ? '<span class="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-bold">Terkirim penuh</span>'
         : '<span class="text-[10px] text-gray-500">Sisa: <b>' + it.sisa + ' ' + it.satuan + '</b></span>';
 
@@ -718,18 +714,21 @@ function barisItem(it) {
         ? '<div class="text-[10px] text-amber-700 italic mt-0.5"><i class="fa-solid fa-note-sticky mr-1"></i>' + escHtml(it.catatan) + '</div>'
         : '';
 
-    return '<label class="flex items-center gap-3 p-3 ' + (nonaktif ? 'bg-gray-50' : 'hover:bg-slate-50') + '">'
-         + '<input type="checkbox" class="cek-item w-4 h-4 shrink-0" data-id="' + it.id + '" data-sisa="' + it.sisa + '"'
-         + (nonaktif ? ' disabled' : '') + ' onchange="saatCentang(this)">'
+    // Mencentang mengisi sisa; bila sisa 0 dibiarkan kosong agar diisi manual.
+    const isiOtomatis = it.sisa > 0 ? it.sisa : '';
+
+    return '<label class="flex items-center gap-3 p-3 hover:bg-slate-50">'
+         + '<input type="checkbox" class="cek-item w-4 h-4 shrink-0" data-id="' + it.id + '" data-sisa="' + isiOtomatis + '"'
+         + ' onchange="saatCentang(this)">'
          + '<div class="flex-1 min-w-0">'
-         + '<div class="text-sm font-semibold ' + (nonaktif ? 'text-gray-400' : 'text-gray-800') + ' truncate">' + escHtml(it.nama_barang) + '</div>'
+         + '<div class="text-sm font-semibold text-gray-800 truncate">' + escHtml(it.nama_barang) + '</div>'
          + '<div class="text-[10px] text-gray-500">Dipesan ' + it.qty + ' ' + it.satuan
          + ' &middot; terkirim ' + it.qty_terkirim + '</div>' + catatan
          + '</div>'
          + '<div class="text-right shrink-0">' + badge
-         + '<input type="number" step="0.01" min="0" max="' + it.sisa + '" name="qty_kirim[' + it.id + ']"'
+         + '<input type="number" step="0.01" min="0" name="qty_kirim[' + it.id + ']"'
          + ' class="qty-item w-20 border p-1 rounded text-right text-xs mt-1 block" value="" placeholder="0"'
-         + (nonaktif ? ' disabled' : '') + ' oninput="hitungTotalKirim()">'
+         + ' oninput="hitungTotalKirim()">'
          + '</div></label>';
 }
 
@@ -746,14 +745,16 @@ function saatCentang(cb) {
 }
 
 function toggleSemuaItem() {
-    const kotak = document.querySelectorAll('.cek-item:not(:disabled)');
+    const kotak = document.querySelectorAll('.cek-item');
     const adaYangBelum = Array.from(kotak).some(c => !c.checked);
     kotak.forEach(c => { c.checked = adaYangBelum; saatCentang(c); });
 }
 
+// Total dihitung dari qty yang benar-benar terisi, bukan dari centangnya,
+// supaya item yang diisi manual (tanpa dicentang) tetap ikut terhitung.
 function hitungTotalKirim() {
     let jml = 0;
-    document.querySelectorAll('.qty-item:not(:disabled)').forEach(inp => {
+    document.querySelectorAll('.qty-item').forEach(inp => {
         if (parseFloat(inp.value) > 0) jml++;
     });
     document.getElementById('lblTotalKirim').innerText = jml + ' item';
