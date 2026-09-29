@@ -123,6 +123,13 @@ if (isUsingAndroidApp) {
     let bgAudio = document.getElementById('bgAudio');
     let lastLat = 0, lastLng = 0;
     let isTracking = false;
+    // watchPosition hanya memicu saat posisi BERUBAH. Saat driver berhenti
+    // (lampu merah / bongkar barang) tidak ada kiriman, sehingga pemantau
+    // menganggapnya offline setelah 90 detik. Heartbeat menjaga status tetap
+    // hidup dengan mengirim ulang posisi terakhir secara berkala.
+    let heartbeatId = null;
+    let lastHeading = 0, lastSpeed = 0;
+    const HEARTBEAT_MS = 25000; // di bawah ambang 45 detik "Delay Jaringan"
 
     const silentAudioBase64 = "data:audio/mp3;base64,//NExAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq";
     bgAudio.src = silentAudioBase64;
@@ -154,10 +161,23 @@ if (isUsingAndroidApp) {
 
         const gpsOptions = { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 };
         watchId = navigator.geolocation.watchPosition(processPosition, handleError, gpsOptions);
+
+        // Kirim posisi awal secepatnya agar pin langsung muncul di peta pemantau,
+        // tanpa menunggu driver bergerak dulu.
+        navigator.geolocation.getCurrentPosition(processPosition, handleError, gpsOptions);
+
+        // Heartbeat: pertahankan status online walau driver sedang diam.
+        if (heartbeatId !== null) clearInterval(heartbeatId);
+        heartbeatId = setInterval(function () {
+            if (isTracking && lastLat !== 0) {
+                kirimKeServer(lastLat, lastLng, lastHeading, lastSpeed);
+            }
+        }, HEARTBEAT_MS);
     }
 
     function stopTrackingManual() {
         if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+        if (heartbeatId !== null) { clearInterval(heartbeatId); heartbeatId = null; }
         if (wakeLock !== null) wakeLock.release();
         
         bgAudio.pause(); bgAudio.currentTime = 0;
@@ -178,17 +198,22 @@ if (isUsingAndroidApp) {
         if(!isTracking) return;
         const lat = position.coords.latitude;
         const lng = position.coords.longitude;
-        const accuracy = position.coords.accuracy; 
-        const speed = position.coords.speed || 0;       
-        
+        const accuracy = position.coords.accuracy;
+        const speed = position.coords.speed || 0;
+        const heading = position.coords.heading || 0;
+
         document.getElementById('accVal').innerText = Math.round(accuracy);
+        // Buang pembacaan yang sangat kasar, kecuali ini titik pertama —
+        // lebih baik pin muncul dengan akurasi rendah daripada tidak muncul.
         if (accuracy > 100 && lastLat !== 0) return;
-        
+
         lastLat = lat; lastLng = lng;
+        lastHeading = heading; lastSpeed = speed;
+
         const time = new Date().toLocaleTimeString();
         document.getElementById('coords').innerHTML = `Lat: ${lat.toFixed(5)}<br>Lng: ${lng.toFixed(5)}<br><span class="text-[10px] text-gray-500">Update: ${time}</span>`;
 
-        if (navigator.onLine) { kirimKeServer(lat, lng, position.coords.heading || 0, speed); }
+        if (navigator.onLine) { kirimKeServer(lat, lng, heading, speed); }
     }
 
     function kirimKeServer(lat, lng, heading, speed) {
@@ -197,8 +222,21 @@ if (isUsingAndroidApp) {
         fd.append('lat', lat);
         fd.append('lng', lng);
         fd.append('heading', heading);
-        fd.append('speed', speed); 
-        fetch('pages/ajax_driver.php', { method: 'POST', body: fd, keepalive: true }).catch(e => {});
+        fd.append('speed', speed);
+        fetch('pages/ajax_driver.php', { method: 'POST', body: fd, keepalive: true })
+            .then(r => r.json())
+            .then(d => {
+                // Tandai bila server menolak, supaya driver tidak merasa aman
+                // padahal posisinya tidak tersimpan.
+                if (d && d.status === 'success') {
+                    document.getElementById('statusIcon').className = "w-4 h-4 rounded-full bg-green-500 animate-ping";
+                } else {
+                    document.getElementById('statusIcon').className = "w-4 h-4 rounded-full bg-yellow-500";
+                }
+            })
+            .catch(e => {
+                document.getElementById('statusIcon').className = "w-4 h-4 rounded-full bg-yellow-500";
+            });
     }
 
     function sendOfflineSignal() {
