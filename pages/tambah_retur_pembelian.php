@@ -146,7 +146,7 @@ if(isset($_POST['simpan_retur'])) {
                 <select name="barang_id[]" class="flex-1 border p-2 rounded" required>
                     <option value="">-- Pilih Barang --</option>
                     <?php 
-                    $qb = mysqli_query($conn, "SELECT * FROM barang ORDER BY nama_barang ASC");
+                    $qb = mysqli_query($conn, "SELECT * FROM barang WHERE " . sql_barang_tampil() . " ORDER BY nama_barang ASC");
                     // Simpan opsi barang di variabel biar hemat query saat tambah baris via JS
                     $opsi_barang = "";
                     while($b = mysqli_fetch_assoc($qb)){

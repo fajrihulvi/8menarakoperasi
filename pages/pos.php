@@ -162,7 +162,7 @@ if(isset($_POST['proses_bayar'])) {
             <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 <?php 
                 // PERBAIKAN QUERY: Filter barang WHERE id_usaha = $id_usaha
-                $brg = mysqli_query($conn, "SELECT * FROM barang WHERE stok > 0 AND id_usaha='$id_usaha' ORDER BY nama_barang ASC");
+                $brg = mysqli_query($conn, "SELECT * FROM barang WHERE stok > 0 AND id_usaha='$id_usaha' AND " . sql_barang_tampil() . " ORDER BY nama_barang ASC");
                 
                 if(mysqli_num_rows($brg) > 0):
                     while($b = mysqli_fetch_assoc($brg)): 

@@ -154,7 +154,7 @@ if(isset($_POST['respon_opname'])) {
                 <select name="id_barang" class="w-full border p-2 rounded text-sm" required>
                     <option value="">-- Pilih Barang --</option>
                     <?php
-                    $brg = mysqli_query($conn, "SELECT id, nama_barang, satuan, stok FROM barang WHERE id_usaha='$id_usaha' ORDER BY nama_barang ASC");
+                    $brg = mysqli_query($conn, "SELECT id, nama_barang, satuan, stok FROM barang WHERE id_usaha='$id_usaha' AND " . sql_barang_tampil() . " ORDER BY nama_barang ASC");
                     while($b = mysqli_fetch_assoc($brg)) {
                         echo "<option value='{$b['id']}'>{$b['nama_barang']} (Stok sistem: " . (float)$b['stok'] . " {$b['satuan']})</option>";
                     }

@@ -339,7 +339,7 @@ if(isset($_GET['hapus_po'])) {
                     <input list="list_barang" name="nama_barang" id="input_nama_barang" class="w-full border p-2 rounded text-sm focus:outline-indigo-500" placeholder="Ketik nama..." autocomplete="off" required onchange="cekBarang()">
                     <datalist id="list_barang">
                         <?php 
-                        $brg = mysqli_query($conn, "SELECT nama_barang FROM barang WHERE id_usaha='$id_usaha' ORDER BY nama_barang ASC");
+                        $brg = mysqli_query($conn, "SELECT nama_barang FROM barang WHERE id_usaha='$id_usaha' AND " . sql_barang_tampil() . " ORDER BY nama_barang ASC");
                         while($b = mysqli_fetch_assoc($brg)) { echo "<option value='{$b['nama_barang']}'>"; }
                         ?>
                     </datalist>

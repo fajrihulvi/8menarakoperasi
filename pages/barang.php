@@ -66,7 +66,7 @@ if(isset($_POST['cetak_pdf'])) {
     $filter_kat = mysqli_real_escape_string($conn, $_POST['filter_kategori'] ?? '');
     $filter_jk  = (int) ($_POST['filter_jenis_barang'] ?? 0);
 
-    $where_sql = "b.id_usaha = '$id_usaha_aktif'";
+    $where_sql = "b.id_usaha = '$id_usaha_aktif' AND " . sql_barang_tampil('b');
     $subtitle = "";
 
     if (!empty($filter_kat)) {
@@ -163,7 +163,7 @@ if(isset($_POST['export_barang'])) {
     $filter_kat = mysqli_real_escape_string($conn, $_POST['filter_kategori'] ?? '');
     $filter_jk  = (int) ($_POST['filter_jenis_barang'] ?? 0);
 
-    $where_sql = "b.id_usaha = '$id_usaha_aktif'";
+    $where_sql = "b.id_usaha = '$id_usaha_aktif' AND " . sql_barang_tampil('b');
     if (!empty($filter_kat)) { $where_sql .= " AND b.kategori = '$filter_kat'"; }
     if ($filter_jk > 0)      { $where_sql .= " AND b.jenis_barang_id = '$filter_jk'"; }
     if (!empty($filter_search)) { $where_sql .= " AND (b.nama_barang LIKE '%$filter_search%' OR b.kode_barang LIKE '%$filter_search%' OR b.kategori LIKE '%$filter_search%')"; }
@@ -537,7 +537,7 @@ if(isset($_GET['hapus'])) {
                 $b_hal   = ambil_halaman();
                 $b_limit = ambil_per_halaman();
 
-                $b_where_tambahan = ['b.id_usaha = ?'];
+                $b_where_tambahan = ['b.id_usaha = ?', sql_barang_tampil('b')];
                 $b_params_tambahan = [$id_usaha_aktif];
                 $b_tipe_tambahan   = 'i';
 

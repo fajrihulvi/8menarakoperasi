@@ -85,7 +85,7 @@ if(isset($_GET['hapus'])) {
                 if (!$k_rows) { echo render_kosong(3, 'Tidak ada kategori yang cocok.'); }
 
                 foreach ($k_rows as $row):
-                    $jml = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) AS n FROM barang WHERE kategori_id = " . (int)$row['id']))['n'] ?? 0;
+                    $jml = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) AS n FROM barang WHERE " . sql_barang_tampil() . " AND kategori_id = " . (int)$row['id']))['n'] ?? 0;
                 ?>
                 <tr class="hover:bg-gray-50">
                     <td class="px-4 py-3 font-medium text-gray-900"><?= $row['nama_kategori'] ?></td>

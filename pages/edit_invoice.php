@@ -244,7 +244,7 @@ if ($pelanggan_id > 0) {
     }
 }
 
-$q_all_barang = mysqli_query($conn, "SELECT id, nama_barang, kode_barang, harga_jual FROM barang ORDER BY nama_barang ASC");
+$q_all_barang = mysqli_query($conn, "SELECT id, nama_barang, kode_barang, harga_jual FROM barang WHERE " . sql_barang_tampil() . " ORDER BY nama_barang ASC");
 $options_barang = "<option value=''>-- Pilih Barang --</option>";
 while($b = mysqli_fetch_assoc($q_all_barang)) {
     $harga_db = (float)$b['harga_jual'];

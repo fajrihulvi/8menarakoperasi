@@ -204,7 +204,7 @@ if(isset($_POST['kirim_pesanan'])) {
                             <select name="id_barang[]" class="w-full barang-select" required>
                                 <option value="">-- Cari Barang --</option>
                                 <?php
-                                $sql = "SELECT id, nama_barang, satuan, warehouse_id, harga_jual, harga_gabek, harga_kereta, harga_jebus FROM barang WHERE id_usaha='$id_toko_target' ORDER BY nama_barang ASC";
+                                $sql = "SELECT id, nama_barang, satuan, warehouse_id, harga_jual, harga_gabek, harga_kereta, harga_jebus FROM barang WHERE id_usaha='$id_toko_target' AND " . sql_barang_tampil() . " ORDER BY nama_barang ASC";
                                 $q = mysqli_query($conn, $sql);
                                 while($b = mysqli_fetch_assoc($q)) {
 

@@ -167,7 +167,7 @@ if(isset($_GET['ajax_action']) && $_GET['ajax_action'] == 'update') {
              LIMIT 1
             ) as pending_json
             FROM barang b 
-            WHERE b.id_usaha='$id_usaha' 
+            WHERE b.id_usaha='$id_usaha' AND " . sql_barang_tampil('b') . "
             ORDER BY b.nama_barang ASC
         ";
         

@@ -166,7 +166,7 @@ if(isset($_POST['simpan_sj'])) {
                             <select name="id_barang[]" class="w-full border p-2 rounded bg-gray-50 barang-select" onchange="isiHarga(this)" style="width: 100%;" required>
                                 <option value="">-- Ketik Nama Barang --</option>
                                 <?php
-                                $brg = mysqli_query($conn, "SELECT * FROM barang WHERE id_usaha='$id_usaha' ORDER BY nama_barang ASC");
+                                $brg = mysqli_query($conn, "SELECT * FROM barang WHERE id_usaha='$id_usaha' AND " . sql_barang_tampil() . " ORDER BY nama_barang ASC");
                                 while($b = mysqli_fetch_assoc($brg)) {
                                     $stok = (float)$b['stok'];
                                     $label_stok = ($stok <= 0) ? "HABIS" : $stok;

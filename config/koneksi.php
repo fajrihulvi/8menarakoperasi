@@ -197,6 +197,17 @@ if (!function_exists('format_rupiah')) {
     }
 }
 
+// --- FILTER BARANG YANG BOLEH TAMPIL ---
+// Barang dengan Kategori Konsumen selain SPPG (mis. Horeka) disembunyikan
+// dari master data & dropdown pilihan barang. Barang tanpa Kategori Konsumen
+// tetap tampil. Pakai di klausa WHERE: "... AND " . sql_barang_tampil('b')
+if (!function_exists('sql_barang_tampil')) {
+    function sql_barang_tampil($alias = '') {
+        $kolom = ($alias !== '' ? $alias . '.' : '') . 'jenis_barang_id';
+        return "($kolom IS NULL OR $kolom = 0 OR $kolom IN (SELECT id FROM jenis_barang WHERE TRIM(jenis_barang) = 'SPPG'))";
+    }
+}
+
 // --- FUNGSI PENCATAT LOG (SISTEM CCTV) ---
 if (!function_exists('catat_log')) {
     function catat_log($koneksi, $aksi, $detail) {

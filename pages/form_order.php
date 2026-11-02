@@ -66,7 +66,7 @@ if(isset($_GET['clear_cart'])) { unset($_SESSION['cart_order']); echo "<script>w
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 h-[600px] overflow-y-auto custom-scrollbar pr-2">
             <?php
             // PERBAIKAN: Menghapus 'AND stok > 0' agar barang kosong tetap muncul dan bisa di-PO
-            $q_brg = mysqli_query($conn, "SELECT * FROM barang WHERE id_usaha='$id_usaha' ORDER BY nama_barang ASC");
+            $q_brg = mysqli_query($conn, "SELECT * FROM barang WHERE id_usaha='$id_usaha' AND " . sql_barang_tampil() . " ORDER BY nama_barang ASC");
             while($b = mysqli_fetch_assoc($q_brg)):
                 $stok_class = ($b['stok'] <= 0) ? "text-red-500 font-bold" : "text-gray-500";
                 $stok_label = ($b['stok'] <= 0) ? "Stok Kosong (PO)" : "Stok: ".(float)$b['stok']." ".$b['satuan'];

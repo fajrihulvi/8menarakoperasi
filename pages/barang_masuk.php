@@ -210,7 +210,7 @@ if(isset($_POST['get_detail_bm'])) {
                 <datalist id="list_barang">
                     <?php 
                     // Ambil satuan juga untuk dikaitkan dengan javascript
-                    $brg = mysqli_query($conn, "SELECT nama_barang, satuan FROM barang WHERE id_usaha='$id_usaha' ORDER BY nama_barang ASC");
+                    $brg = mysqli_query($conn, "SELECT nama_barang, satuan FROM barang WHERE id_usaha='$id_usaha' AND " . sql_barang_tampil() . " ORDER BY nama_barang ASC");
                     while($b = mysqli_fetch_assoc($brg)) { 
                         echo "<option value='".htmlspecialchars($b['nama_barang'], ENT_QUOTES)."' data-satuan='".htmlspecialchars($b['satuan'], ENT_QUOTES)."'>"; 
                     }
